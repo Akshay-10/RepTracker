@@ -18,7 +18,7 @@ export function AuthShell({ mode }: { mode: "login" | "signup" }) {
             <span><i><Dumbbell size={18} /></i><strong>Fast workout logging</strong><small>Every set captured in seconds</small></span>
             <span><i><Activity size={18} /></i><strong>Smart exercise rotation</strong><small>Familiar enough to measure progress</small></span>
             <span><i><BarChart3 size={18} /></i><strong>Clear progress signals</strong><small>Volume, strength, consistency, body</small></span>
-            <span><i><ShieldCheck size={18} /></i><strong>Local-first foundation</strong><small>Train even without integrations</small></span>
+            <span><i><ShieldCheck size={18} /></i><strong>Private cloud sync</strong><small>Your account rows are protected by RLS</small></span>
           </div>
         </div>
         <blockquote>“Consistency builds the body. Evidence builds belief.”</blockquote>

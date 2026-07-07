@@ -22,6 +22,13 @@ import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Brand } from "@/components/brand";
+import {
+  kgToUnit,
+  normalizeWeightUnit,
+  unitToKg,
+  type WeightUnit,
+} from "@/lib/units";
+import { createClient } from "@/utils/supabase/client";
 
 const stepMeta = [
   { label: "About you", icon: UserRound },
@@ -31,21 +38,29 @@ const stepMeta = [
 ];
 
 const goals = [
-  ["Build muscle", "Add size with controlled progressive overload", BicepsFlexed],
-  ["Gain strength", "Prioritize performance on key compound lifts", Zap],
-  ["Recomposition", "Build muscle while staying lean", Gauge],
-  ["Fat loss", "Preserve strength while reducing body fat", HeartPulse],
+  ["muscle_gain", "Build muscle", "Add size with controlled progressive overload", BicepsFlexed],
+  ["strength", "Gain strength", "Prioritize performance on key compound lifts", Zap],
+  ["recomposition", "Recomposition", "Build muscle while staying lean", Gauge],
+  ["fat_loss", "Fat loss", "Preserve strength while reducing body fat", HeartPulse],
 ] as const;
 
-export function OnboardingFlow() {
+export function OnboardingFlow({ initialName }: { initialName: string }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
-  const [goal, setGoal] = useState("Build muscle");
+  const [name, setName] = useState(initialName);
+  const [age, setAge] = useState("");
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
+  const [targetWeight, setTargetWeight] = useState("");
+  const [units, setUnits] = useState<WeightUnit>("kg");
+  const [goal, setGoal] = useState("muscle_gain");
   const [days, setDays] = useState(6);
   const [duration, setDuration] = useState(90);
-  const [experience, setExperience] = useState("Intermediate");
+  const [experience, setExperience] = useState("intermediate");
   const [equipment, setEquipment] = useState(["Dumbbells", "Cable", "Machines", "Barbell"]);
   const [warmups, setWarmups] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const toggleEquipment = (item: string) => {
     setEquipment((current) =>
@@ -55,19 +70,102 @@ export function OnboardingFlow() {
     );
   };
 
-  const finish = () => {
-    localStorage.setItem(
-      "repforge-profile",
-      JSON.stringify({ goal, days, duration, experience, equipment, warmups }),
+  const changeUnits = (nextUnit: WeightUnit) => {
+    if (nextUnit === units) return;
+    const convert = (value: string) => {
+      const parsed = Number(value);
+      if (!value || !Number.isFinite(parsed)) return value;
+      return kgToUnit(unitToKg(parsed, units), nextUnit).toFixed(1);
+    };
+    setWeight((current) => convert(current));
+    setTargetWeight((current) => convert(current));
+    setUnits(nextUnit);
+  };
+
+  const finish = async () => {
+    setSaving(true);
+    setError("");
+    const supabase = createClient();
+    const { data: authData } = await supabase.auth.getClaims();
+    const userId = authData?.claims?.sub;
+    if (!userId) {
+      setError("Your session expired. Please sign in again.");
+      setSaving(false);
+      return;
+    }
+    const currentWeightKg = Number(unitToKg(Number(weight), units).toFixed(2));
+    const targetWeightKg = targetWeight
+      ? Number(unitToKg(Number(targetWeight), units).toFixed(2))
+      : null;
+    if (!Number.isFinite(currentWeightKg)) {
+      setError("Enter a valid current weight.");
+      setSaving(false);
+      return;
+    }
+    if (targetWeight !== "" && !Number.isFinite(targetWeightKg)) {
+      setError("Enter a valid target weight or leave it blank.");
+      setSaving(false);
+      return;
+    }
+
+    const [profileResult, preferenceResult] = await Promise.all([
+      supabase
+        .from("profiles")
+        .upsert({
+          id: userId,
+          name,
+          email:
+            typeof authData.claims.email === "string"
+              ? authData.claims.email
+              : null,
+          age: age ? Number(age) : null,
+          height_cm: Number(height),
+          current_weight_kg: currentWeightKg,
+          target_weight_kg: targetWeightKg,
+          goal,
+          experience_level: experience,
+          training_days: days,
+          workout_duration_minutes: duration,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "id" }),
+      supabase.from("user_preferences").upsert({
+        user_id: userId,
+        units,
+        include_pushup_pullup_warmup: warmups,
+        preferred_equipment: equipment,
+        variation_mode: "moderate",
+        ai_usage_mode: "balanced",
+        updated_at: new Date().toISOString(),
+      }),
+    ]);
+
+    const initialError = profileResult.error || preferenceResult.error;
+    if (initialError) {
+      setError(initialError.message);
+      setSaving(false);
+      return;
+    }
+
+    const { error: planError } = await supabase.rpc(
+      "create_default_workout_plan",
     );
+    if (planError) {
+      setError(
+        `${planError.message}. Run the RepForge schema and bootstrap SQL in Supabase.`,
+      );
+      setSaving(false);
+      return;
+    }
+
     router.push("/dashboard");
+    router.refresh();
   };
 
   return (
     <main className="onboarding-page">
       <header className="onboarding-header">
         <Brand />
-        <span>Already set up? <button onClick={() => router.push("/dashboard")}>Skip to demo</button></span>
+        <span>Already set up? <button onClick={() => router.push("/dashboard")}>Open dashboard</button></span>
       </header>
       <div className="onboarding-shell">
         <aside className="onboarding-rail">
@@ -106,13 +204,14 @@ export function OnboardingFlow() {
                 <>
                   <div className="step-heading"><p className="eyebrow">LET’S START SIMPLE</p><h1>Tell us about yourself.</h1><p>This sets sensible defaults for your training and progress.</p></div>
                   <div className="onboarding-form">
-                    <label className="wide"><span>Your name</span><input defaultValue="Akshay" placeholder="What should we call you?" /></label>
-                    <label><span>Age</span><div><input defaultValue="25" inputMode="numeric" /><em>years</em></div></label>
-                    <label><span>Height</span><div><input defaultValue="186" inputMode="numeric" /><em>cm</em></div></label>
-                    <label><span>Current weight</span><div><input defaultValue="63" inputMode="decimal" /><em>kg</em></div></label>
-                    <label><span>Target weight <small>OPTIONAL</small></span><div><input defaultValue="70" inputMode="decimal" /><em>kg</em></div></label>
+                    <label className="wide"><span>Your name</span><input value={name} onChange={(event) => setName(event.target.value)} placeholder="What should we call you?" required /></label>
+                    <label><span>Age</span><div><input value={age} onChange={(event) => setAge(event.target.value)} inputMode="numeric" required /><em>years</em></div></label>
+                    <label><span>Height</span><div><input value={height} onChange={(event) => setHeight(event.target.value)} inputMode="numeric" placeholder="cm" required /><em>cm</em></div></label>
+                    <label><span>Units</span><select value={units} onChange={(event) => changeUnits(normalizeWeightUnit(event.target.value))}><option value="kg">Kilograms</option><option value="lb">Pounds</option></select></label>
+                    <label><span>Current weight</span><div><input value={weight} onChange={(event) => setWeight(event.target.value)} inputMode="decimal" placeholder={units} required /><em>{units}</em></div></label>
+                    <label><span>Target weight <small>OPTIONAL</small></span><div><input value={targetWeight} onChange={(event) => setTargetWeight(event.target.value)} inputMode="decimal" placeholder={units} /><em>{units}</em></div></label>
                   </div>
-                  <div className="step-note"><Scale size={18} /><span><strong>Lean gain pace</strong><small>At 186 cm and 63 kg, start with a slow 0.15–0.30 kg weekly gain and adjust from real trends.</small></span></div>
+                  <div className="step-note"><Scale size={18} /><span><strong>Lean gain pace</strong><small>Your recommendation will be calculated from the measurements you save.</small></span></div>
                 </>
               )}
 
@@ -120,15 +219,15 @@ export function OnboardingFlow() {
                 <>
                   <div className="step-heading"><p className="eyebrow">CHOOSE YOUR DIRECTION</p><h1>What are you training for?</h1><p>We’ll bias volume and progression without locking you in.</p></div>
                   <div className="goal-grid">
-                    {goals.map(([label, copy, Icon]) => (
-                      <button className={goal === label ? "active" : ""} onClick={() => setGoal(label)} key={label}>
+                    {goals.map(([value, label, copy, Icon]) => (
+                      <button className={goal === value ? "active" : ""} onClick={() => setGoal(value)} key={value}>
                         <span className="goal-icon"><Icon size={23} /></span>
                         <span><strong>{label}</strong><small>{copy}</small></span>
-                        <i>{goal === label && <Check size={13} />}</i>
+                        <i>{goal === value && <Check size={13} />}</i>
                       </button>
                     ))}
                   </div>
-                  <label className="experience-select"><span>Experience level</span><div>{["Beginner", "Intermediate", "Advanced"].map((item) => <button className={experience === item ? "active" : ""} onClick={() => setExperience(item)} key={item}>{item}</button>)}</div></label>
+                  <label className="experience-select"><span>Experience level</span><div>{["beginner", "intermediate", "advanced"].map((item) => <button className={experience === item ? "active" : ""} onClick={() => setExperience(item)} key={item}>{item[0].toUpperCase() + item.slice(1)}</button>)}</div></label>
                 </>
               )}
 
@@ -177,8 +276,9 @@ export function OnboardingFlow() {
                   </div>
                   <div className="ready-summary">
                     <Sparkles size={20} />
-                    <div><strong>Your baseline is ready.</strong><p>{days} days · {duration} minutes · {goal} · Moderate variation · Balanced AI</p></div>
+                    <div><strong>Your baseline is ready.</strong><p>{days} days · {duration} minutes · {goals.find(([value]) => value === goal)?.[1]} · Moderate variation · Balanced AI</p></div>
                   </div>
+                  {error && <p className="auth-message error" role="alert">{error}</p>}
                 </>
               )}
             </motion.div>
@@ -186,8 +286,8 @@ export function OnboardingFlow() {
 
           <div className="onboarding-actions">
             <button className="button button-secondary" onClick={() => setStep(step - 1)} disabled={step === 0}><ArrowLeft size={16} /> Back</button>
-            <button className="button button-primary" onClick={() => step === 3 ? finish() : setStep(step + 1)}>
-              {step === 3 ? "Enter RepForge" : "Continue"} <ArrowRight size={17} />
+            <button className="button button-primary" disabled={saving || (step === 0 && (!name || !height || !weight))} onClick={() => step === 3 ? finish() : setStep(step + 1)}>
+              {saving ? "Saving…" : step === 3 ? "Enter RepForge" : "Continue"} <ArrowRight size={17} />
             </button>
           </div>
         </section>

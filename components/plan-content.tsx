@@ -3,7 +3,6 @@
 import {
   ArrowRight,
   Check,
-  ChevronDown,
   Clock3,
   Dumbbell,
   LockKeyhole,
@@ -16,13 +15,55 @@ import {
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
-import { fullWeek } from "@/lib/data";
+import type { WorkoutDay } from "@/lib/types";
 import { CoachTag, PageHeading, Panel, PanelHeader } from "@/components/ui";
+import { createClient } from "@/utils/supabase/client";
 
-export function PlanContent() {
-  const [selected, setSelected] = useState("monday");
-  const [mode, setMode] = useState<"stable" | "moderate" | "high">("moderate");
-  const day = fullWeek.find((item) => item.key === selected) ?? fullWeek[0];
+export function PlanContent({
+  plan,
+  initialVariationMode,
+}: {
+  plan: WorkoutDay[];
+  initialVariationMode: "stable" | "moderate" | "high";
+}) {
+  const [selected, setSelected] = useState(plan[0]?.key ?? "");
+  const [mode, setMode] = useState<"stable" | "moderate" | "high">(
+    initialVariationMode,
+  );
+  const [modeStatus, setModeStatus] = useState("");
+  const saveMode = async (nextMode: "stable" | "moderate" | "high") => {
+    setMode(nextMode);
+    setModeStatus("Saving…");
+    const supabase = createClient();
+    const { data } = await supabase.auth.getClaims();
+    const userId = data?.claims?.sub;
+    if (!userId) {
+      setModeStatus("Sign in again to save");
+      return;
+    }
+    const { error } = await supabase
+      .from("user_preferences")
+      .update({ variation_mode: nextMode, updated_at: new Date().toISOString() })
+      .eq("user_id", userId);
+    setModeStatus(error ? error.message : "Saved");
+  };
+  const day = plan.find((item) => item.key === selected) ?? plan[0];
+  if (!day) {
+    return (
+      <>
+        <PageHeading
+          eyebrow="YOUR PROGRAM"
+          title="No active plan yet."
+          copy="Complete onboarding after the database schema is installed to create your live training plan."
+        />
+        <Panel className="rest-day-card">
+          <span>0</span>
+          <h3>Your plan will appear here.</h3>
+          <p>No seeded or hardcoded workout is being shown for this account.</p>
+        </Panel>
+      </>
+    );
+  }
   const totalSets = day.exercises.reduce((sum, item) => sum + item.sets, 0);
 
   return (
@@ -39,26 +80,26 @@ export function PlanContent() {
       />
 
       <div className="block-banner">
-        <div className="block-number">04</div>
+        <div className="block-number">{String(plan.length).padStart(2, "0")}</div>
         <div>
           <span className="status-chip"><span /> ACTIVE BLOCK</span>
-          <h2>Hypertrophy foundation</h2>
-          <p>Week 4 of 6 · Progressive overload · 1–2 reps in reserve</p>
+          <h2>Active training plan</h2>
+          <p>{plan.length} scheduled days · Synced from Supabase</p>
         </div>
         <div className="block-progress">
-          <span><strong>66%</strong> complete</span>
-          <div><i style={{ width: "66%" }} /></div>
+          <span><strong>{plan.length}</strong> training days</span>
+          <div><i style={{ width: plan.length ? "100%" : "0%" }} /></div>
         </div>
         <div className="block-target">
           <Target size={18} />
-          <span><small>BLOCK GOAL</small><strong>Quality volume</strong></span>
+          <span><small>PLAN SOURCE</small><strong>Live database</strong></span>
         </div>
       </div>
 
       <div className="plan-layout">
         <div className="plan-main">
           <div className="day-tabs" role="tablist" aria-label="Workout days">
-            {fullWeek.map((item) => (
+            {plan.map((item) => (
               <button
                 className={item.key === selected ? "active" : ""}
                 onClick={() => setSelected(item.key)}
@@ -84,7 +125,7 @@ export function PlanContent() {
             >
               <div className="day-program-head">
                 <div>
-                  <p className="eyebrow">{day.day.toUpperCase()} · DAY {String(fullWeek.indexOf(day) + 1).padStart(2, "0")}</p>
+                  <p className="eyebrow">{day.day.toUpperCase()} · DAY {String(plan.indexOf(day) + 1).padStart(2, "0")}</p>
                   <h2>{day.title}</h2>
                   <p>{day.focus}</p>
                 </div>
@@ -123,7 +164,9 @@ export function PlanContent() {
                         <small>{item.rest}s rest</small>
                       </span>
                       <span className="program-equipment">{item.equipment}</span>
-                      <button aria-label={`Expand ${item.name}`}><ChevronDown size={17} /></button>
+                      <Link href={`/exercises/${item.id}`} aria-label={`Open ${item.name}`}>
+                        <ArrowRight size={17} />
+                      </Link>
                     </div>
                   ))}
                 </div>
@@ -147,7 +190,7 @@ export function PlanContent() {
               {(["stable", "moderate", "high"] as const).map((item) => (
                 <button
                   className={mode === item ? "active" : ""}
-                  onClick={() => setMode(item)}
+                  onClick={() => void saveMode(item)}
                   key={item}
                 >
                   <span className="mode-radio">{mode === item && <Check size={11} />}</span>
@@ -165,6 +208,7 @@ export function PlanContent() {
                 </button>
               ))}
             </div>
+            {modeStatus && <p className="setting-save-status" role="status">{modeStatus}</p>}
             <Link className="button button-secondary full-button" href="/settings#variations">
               <Settings2 size={16} /> Tune variation settings
             </Link>

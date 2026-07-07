@@ -9,11 +9,9 @@ import {
   Dumbbell,
   Menu,
   Play,
-  ShieldCheck,
   Shuffle,
   Sparkles,
   Target,
-  TimerReset,
   TrendingUp,
   X,
   Zap,
@@ -22,6 +20,7 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { Brand } from "@/components/brand";
+import { AuthNav } from "@/components/auth-nav";
 
 const features = [
   {
@@ -54,7 +53,7 @@ const features = [
   },
 ];
 
-export function LandingPage() {
+export function LandingPage({ authenticated }: { authenticated: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
@@ -65,10 +64,10 @@ export function LandingPage() {
           <a href="#system">The system</a>
           <a href="#progress">Progress</a>
           <a href="#coach">AI coach</a>
-          <Link href="/login">Sign in</Link>
+          <AuthNav initialAuthenticated={authenticated} />
         </div>
-        <Link className="button button-primary nav-cta" href="/onboarding">
-          Start training <ArrowRight size={16} />
+        <Link className="button button-primary nav-cta" href={authenticated ? "/dashboard" : "/onboarding"}>
+          {authenticated ? "Open dashboard" : "Start training"} <ArrowRight size={16} />
         </Link>
         <button className="marketing-menu" onClick={() => setMenuOpen(true)} aria-label="Open menu">
           <Menu size={21} />
@@ -93,8 +92,8 @@ export function LandingPage() {
             movements, and turns every session into visible progress.
           </p>
           <div className="hero-actions">
-            <Link className="button button-primary button-xl" href="/dashboard">
-              Start today’s workout <ArrowRight size={18} />
+            <Link className="button button-primary button-xl" href={authenticated ? "/workout/today" : "/signup"}>
+              {authenticated ? "Open today’s workout" : "Create your account"} <ArrowRight size={18} />
             </Link>
             <a className="watch-link" href="#system"><span><Play size={14} fill="currentColor" /></span> See how it works</a>
           </div>
@@ -114,38 +113,38 @@ export function LandingPage() {
           <div className="stage-glow" />
           <div className="float-card float-readiness">
             <span><Zap size={15} /></span>
-            <div><small>READINESS</small><strong>86 · High</strong></div>
+            <div><small>READINESS</small><strong>Live · Synced</strong></div>
           </div>
           <div className="float-card float-pr">
             <span><TrendingUp size={15} /></span>
-            <div><small>NEW PR</small><strong>24 kg × 10</strong></div>
+            <div><small>NEW PR</small><strong>From your logs</strong></div>
           </div>
           <div className="phone-frame">
-            <div className="phone-top"><span>9:41</span><i /></div>
+            <div className="phone-top"><span>LIVE PREVIEW</span><i /></div>
             <div className="phone-app-head">
               <Brand compact />
-              <span className="mini-avatar">AK</span>
+              <span className="mini-avatar">YOU</span>
             </div>
-            <div className="phone-greeting"><small>GOOD MORNING, AKSHAY</small><strong>Today’s <em>forge.</em></strong></div>
+            <div className="phone-greeting"><small>YOUR LIVE PLAN</small><strong>Today’s <em>forge.</em></strong></div>
             <div className="phone-session">
-              <span className="phone-session-label"><i /> MONDAY · BUILD</span>
-              <h3>Chest +<br />Triceps</h3>
-              <p>Upper chest strength · arms</p>
-              <div><span><Clock3 size={11} /> 82 min</span><span><Dumbbell size={11} /> 6 moves</span></div>
+              <span className="phone-session-label"><i /> NEXT · LIVE PLAN</span>
+              <h3>Your<br />Workout</h3>
+              <p>Exercises, sets, and rest come from your plan</p>
+              <div><span><Clock3 size={11} /> Plan timing</span><span><Dumbbell size={11} /> Live moves</span></div>
               <Link href="/workout/today">Start workout <ArrowRight size={14} /></Link>
             </div>
-            <div className="phone-row-title"><strong>This week</strong><span>4 / 6</span></div>
+            <div className="phone-row-title"><strong>Training week</strong><span>SYNCED</span></div>
             <div className="phone-week">
               {["M", "T", "W", "T", "F", "S", "S"].map((day, index) => (
                 <span className={index === 0 ? "active" : index < 4 ? "done" : ""} key={`${day}-${index}`}>
                   <i>{index > 0 && index < 4 ? <Check size={9} /> : day}</i>
-                  <small>{index + 6}</small>
+                  <small>{index === 0 ? "NOW" : "DAY"}</small>
                 </span>
               ))}
             </div>
             <div className="phone-insight">
               <span><Sparkles size={14} /></span>
-              <div><small>FORGE AI</small><strong>Keep the incline press today.</strong><p>You’re adding reps with clean form.</p></div>
+              <div><small>FORGE AI</small><strong>Built from your live logs.</strong><p>Recommendations update with your training.</p></div>
               <ChevronRight size={14} />
             </div>
             <div className="phone-nav">
@@ -157,10 +156,10 @@ export function LandingPage() {
         </motion.div>
 
         <div className="landing-metrics">
-          <span><strong>60–70%</strong><small>PLAN STAYS STABLE</small></span>
-          <span><strong>&lt; 5 sec</strong><small>TO LOG A SET</small></span>
-          <span><strong>90 min</strong><small>SESSION HARD CAP</small></span>
-          <span><strong>100%</strong><small>USEFUL SIGNAL</small></span>
+          <span><strong>Stable</strong><small>ANCHOR LIFTS</small></span>
+          <span><strong>Fast</strong><small>SET LOGGING</small></span>
+          <span><strong>Focused</strong><small>SESSION DESIGN</small></span>
+          <span><strong>Live</strong><small>PROGRESS SIGNAL</small></span>
         </div>
       </section>
 
@@ -198,24 +197,18 @@ export function LandingPage() {
           </ul>
           <Link className="button button-secondary" href="/plan">See the workout plan <ArrowRight size={16} /></Link>
         </div>
-        <div className="variation-demo">
-          <div className="demo-head"><span><Sparkles size={15} /> VARIATION FOR THIS WEEK</span><em>MATCH 96%</em></div>
-          <div className="swap-card old">
-            <span className="swap-index">PREVIOUS</span>
-            <div><strong>Pec Deck Fly</strong><small>Mid chest · supported adduction</small></div>
-            <span className="equipment-pill">MACHINE</span>
-          </div>
-          <div className="swap-connector"><Shuffle size={17} /><span /></div>
-          <div className="swap-card new">
-            <span className="swap-index">THIS WEEK</span>
-            <div><strong>Low-to-High Cable Fly</strong><small>Upper chest · constant cable tension</small></div>
-            <span className="equipment-pill">CABLE</span>
-          </div>
-          <div className="demo-reason">
-            <Sparkles size={16} />
-            <p><strong>Why this?</strong> Same fly pattern, a fresh upper-chest angle, and lower joint stress after two pressing movements.</p>
-          </div>
-          <div className="demo-tags"><span><ShieldCheck size={13} /> Low joint stress</span><span><Target size={13} /> Upper chest</span><span><TimerReset size={13} /> 75s rest</span></div>
+        <div className="live-system-card">
+          <span className="launch-pill"><Sparkles size={13} /> LIVE INPUTS ONLY</span>
+          <h3>The engine reads your actual account data.</h3>
+          <ul>
+            <li><Check size={14} /><span>Saved plan slots and compatible variations</span></li>
+            <li><Check size={14} /><span>Preferred equipment, avoid list, and pain flags</span></li>
+            <li><Check size={14} /><span>Completed sets, recent load, reps, and records</span></li>
+            <li><Check size={14} /><span>Your selected kg/lb display preference</span></li>
+          </ul>
+          <Link className="button button-primary" href={authenticated ? "/plan" : "/signup"}>
+            {authenticated ? "Open live plan" : "Create your live plan"} <ArrowRight size={16} />
+          </Link>
         </div>
       </section>
 
@@ -224,18 +217,15 @@ export function LandingPage() {
           <p className="eyebrow">PROGRESS, WITHOUT THE NOISE</p>
           <h2>Turn effort into <em>evidence.</em></h2>
         </div>
-        <div className="landing-chart-card">
-          <div className="landing-chart-copy">
-            <small>WEEKLY TRAINING VOLUME</small>
-            <strong>10,780 <em>kg</em></strong>
-            <span>↑ 5.3% vs last week</span>
+        <div className="progress-live-card">
+          <div>
+            <small>NO SAMPLE METRICS</small>
+            <strong>Your charts appear after your first saved sets.</strong>
+            <span>Volume, consistency, body weight, strength trend, and PRs are calculated from Supabase rows for your account.</span>
           </div>
-          <div className="fake-chart">
-            {[35, 48, 43, 63, 58, 74, 86].map((height, index) => (
-              <span style={{ height: `${height}%` }} key={index}><i /></span>
-            ))}
-          </div>
-          <div className="chart-note"><Sparkles size={15} /><span><strong>Steady overload</strong><small>Volume is climbing while session length stays controlled.</small></span></div>
+          <Link className="button button-secondary" href={authenticated ? "/progress" : "/signup"}>
+            {authenticated ? "Open live progress" : "Start logging"} <ArrowRight size={16} />
+          </Link>
         </div>
       </section>
 
@@ -244,13 +234,13 @@ export function LandingPage() {
         <p className="eyebrow">YOUR NEXT SET IS WAITING</p>
         <h2>Build the body.<br /><em>Keep the proof.</em></h2>
         <p>Start with your exact six-day plan. Adjust as you grow.</p>
-        <Link className="button button-primary button-xl" href="/onboarding">Start training today <ArrowRight size={18} /></Link>
+        <Link className="button button-primary button-xl" href={authenticated ? "/dashboard" : "/onboarding"}>{authenticated ? "Open dashboard" : "Start training today"} <ArrowRight size={18} /></Link>
       </section>
 
       <footer className="marketing-footer">
         <div><Brand /><p>Train with intent. Track what matters.</p></div>
         <div><strong>PRODUCT</strong><Link href="/dashboard">Dashboard</Link><Link href="/plan">Workout plan</Link><Link href="/progress">Progress</Link></div>
-        <div><strong>ACCOUNT</strong><Link href="/login">Sign in</Link><Link href="/signup">Create account</Link><Link href="/settings">Settings</Link></div>
+        <div><strong>ACCOUNT</strong><AuthNav initialAuthenticated={authenticated} compact />{!authenticated && <Link href="/signup">Create account</Link>}</div>
         <div><strong>PRINCIPLES</strong><span>Progressive overload</span><span>Useful variation</span><span>Private by default</span></div>
         <p>© 2026 RepForge. Built for the next rep.</p>
       </footer>
@@ -264,8 +254,10 @@ export function LandingPage() {
               <a href="#system" onClick={() => setMenuOpen(false)}>The system</a>
               <a href="#progress" onClick={() => setMenuOpen(false)}>Progress</a>
               <a href="#coach" onClick={() => setMenuOpen(false)}>AI coach</a>
-              <Link href="/login">Sign in</Link>
-              <Link className="button button-primary" href="/onboarding">Start training <ArrowRight size={16} /></Link>
+              <AuthNav initialAuthenticated={authenticated} compact />
+              <Link className="button button-primary" href={authenticated ? "/dashboard" : "/onboarding"}>
+                {authenticated ? "Open dashboard" : "Start training"} <ArrowRight size={16} />
+              </Link>
             </motion.div>
           </>
         )}

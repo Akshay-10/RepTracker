@@ -7,7 +7,6 @@ import {
   Flame,
   Trophy,
 } from "lucide-react";
-import { consistency, recentRecords } from "@/lib/data";
 import {
   MuscleVolumeChart,
   StrengthChart,
@@ -15,32 +14,60 @@ import {
   WeightChart,
 } from "@/components/charts";
 import { PageHeading, Panel, PanelHeader, StatCard } from "@/components/ui";
+import { getViewer } from "@/lib/auth";
+import { getLiveSnapshot } from "@/lib/live-data";
+import {
+  convertVolumePoint,
+  displayRecordResult,
+  displayVolume,
+  kgToUnit,
+} from "@/lib/units";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Progress",
 };
 
-export default function ProgressPage() {
+export default async function ProgressPage() {
+  const viewer = await getViewer();
+  if (!viewer) redirect("/login");
+  const data = await getLiveSnapshot(viewer.id);
+  const unit = data.preferences.units;
+  const completedConsistencyDays = data.consistencyDays.filter(
+    (day) => day.completed,
+  ).length;
+  const displayedVolumeTrend = data.volumeTrend.map((point) =>
+    convertVolumePoint(point, unit),
+  );
+  const displayedWeightTrend = data.weightTrend.map((point) => ({
+    ...point,
+    weight: Number(kgToUnit(point.weight, unit).toFixed(1)),
+  }));
+  const displayedStrengthTrend = data.strengthTrend.map((row) =>
+    Object.fromEntries(
+      Object.entries(row).map(([key, value]) => [
+        key,
+        key === "month" || typeof value !== "number"
+          ? value
+          : Number(kgToUnit(value, unit).toFixed(1)),
+      ]),
+    ),
+  );
+
   return (
     <>
       <PageHeading
         eyebrow="PROGRESS ANALYTICS"
         title="The work is showing."
         copy="Clear trends, useful comparisons, and no vanity metrics."
-        actions={
-          <select className="select-control" defaultValue="6-weeks" aria-label="Chart date range">
-            <option value="6-weeks">Last 6 weeks</option>
-            <option value="3-months">Last 3 months</option>
-            <option value="year">This year</option>
-          </select>
-        }
+        actions={<span className="source-pill ai">Live Supabase</span>}
       />
 
       <div className="progress-stats">
-        <StatCard icon={Dumbbell} label="Total volume" value="58.3k" suffix="kg" delta="+12.4% this block" tone="lime" />
-        <StatCard icon={CalendarCheck2} label="Consistency" value="92" suffix="%" delta="22 of 24 sessions" tone="blue" />
-        <StatCard icon={Trophy} label="Personal records" value="11" suffix="PRs" delta="4 in the last 14 days" tone="violet" />
-        <StatCard icon={Flame} label="Longest streak" value="18" suffix="days" delta="Current streak" tone="orange" />
+        <StatCard icon={Dumbbell} label="Weekly volume" value={Math.round(kgToUnit(data.weeklyVolume, unit)).toLocaleString()} suffix={unit} delta={`${displayVolume(data.previousWeeklyVolume, unit)} last week`} tone="lime" />
+        <StatCard icon={CalendarCheck2} label="Consistency" value={String(data.consistencyPercent)} suffix="%" delta={`${data.completedLast28Days} of ${data.expectedLast28Days} sessions`} tone="blue" />
+        <StatCard icon={Trophy} label="Personal records" value={String(data.recentRecords.length)} suffix="recent" delta={`${data.recordsThisBlock} in six weeks`} tone="violet" />
+        <StatCard icon={Flame} label="Current streak" value={String(data.streak)} suffix="sessions" delta="Scheduled days completed" tone="orange" />
       </div>
 
       <div className="analytics-grid">
@@ -48,56 +75,56 @@ export default function ProgressPage() {
           <PanelHeader
             eyebrow="STRENGTH TREND"
             title="Key lifts are moving"
-            action={<span className="positive-delta">↑ 14.8% block average</span>}
+            action={<span className="positive-delta">{data.strengthSeries.length} TRACKED LIFTS</span>}
           />
           <div className="chart-legend">
-            <span><i className="lime" /> Incline press</span>
-            <span><i className="blue" /> Cable row</span>
-            <span><i className="orange" /> RDL</span>
+            {data.strengthSeries.map((series, index) => (
+              <span key={series}><i className={index === 1 ? "blue" : index === 2 ? "orange" : "lime"} /> {series}</span>
+            ))}
           </div>
-          <StrengthChart />
+          <StrengthChart data={displayedStrengthTrend} series={data.strengthSeries} unit={unit} />
         </Panel>
 
         <Panel className="muscle-panel">
           <PanelHeader eyebrow="VOLUME DISTRIBUTION" title="Sets by muscle" />
-          <MuscleVolumeChart />
+          <MuscleVolumeChart data={data.muscleVolume} />
           <div className="volume-callout">
             <Activity size={17} />
-            <span><strong>Balanced overall</strong><small>Add 1 core set on Saturday to meet target.</small></span>
+            <span><strong>{data.muscleVolume.length} muscle groups logged</strong><small>Counts include completed sets from the current week.</small></span>
           </div>
         </Panel>
 
         <Panel>
           <PanelHeader eyebrow="TONNAGE" title="Weekly volume" />
-          <VolumeChart />
+          <VolumeChart data={displayedVolumeTrend} unit={unit} />
         </Panel>
 
         <Panel>
-          <PanelHeader eyebrow="BODY WEIGHT" title="Lean gain pace" action={<span className="positive-delta">+1.3 kg</span>} />
-          <WeightChart />
+          <PanelHeader eyebrow="BODY WEIGHT" title="Tracked weight trend" action={<span className="positive-delta">{data.weightDelta === null ? "NO BASELINE" : `${data.weightDelta >= 0 ? "+" : ""}${kgToUnit(data.weightDelta, unit).toFixed(1)} ${unit}`}</span>} />
+          <WeightChart data={displayedWeightTrend} unit={unit} />
         </Panel>
 
         <Panel className="consistency-panel">
           <PanelHeader eyebrow="CONSISTENCY" title="35-day training rhythm" />
           <div className="consistency-grid">
-            {consistency.map((value, index) => (
-              <span className={value ? `level-${(index % 3) + 1}` : ""} key={index} title={value ? "Workout completed" : "Rest or missed"} />
+            {data.consistencyDays.map((day, index) => (
+              <span className={day.completed ? `level-${(index % 3) + 1}` : ""} key={day.date} title={day.completed ? `Workout completed ${day.date}` : `No completed workout ${day.date}`} />
             ))}
           </div>
           <div className="consistency-footer">
-            <span><strong>31</strong><small>sessions completed</small></span>
-            <span><strong>4</strong><small>rest / missed</small></span>
-            <span><strong>88%</strong><small>rolling consistency</small></span>
+            <span><strong>{completedConsistencyDays}</strong><small>sessions completed</small></span>
+            <span><strong>{data.consistencyDays.length - completedConsistencyDays}</strong><small>rest / missed</small></span>
+            <span><strong>{Math.round((completedConsistencyDays / Math.max(data.consistencyDays.length, 1)) * 100)}%</strong><small>35-day completion rate</small></span>
           </div>
         </Panel>
 
         <Panel className="progress-records">
           <PanelHeader eyebrow="LATEST WINS" title="Recent personal records" />
-          {recentRecords.map((record) => (
-            <div className="progress-record" key={record.exercise}>
+          {data.recentRecords.slice(0, 4).map((record) => (
+            <div className="progress-record" key={record.id}>
               <span><Trophy size={16} /></span>
               <span><strong>{record.exercise}</strong><small>{record.date}</small></span>
-              <span><strong>{record.result}</strong><small>{record.gain}</small></span>
+              <span><strong>{displayRecordResult(record.weightKg, record.reps, record.estimatedOneRepMax, unit)}</strong><small>{record.type}</small></span>
               <ArrowUpRight size={15} />
             </div>
           ))}

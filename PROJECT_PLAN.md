@@ -2,43 +2,47 @@
 
 ## Product
 
-- Build a dark-first, mobile-first gym companion for a six-day muscle-and-strength split.
-- Make the daily loop fast: open today’s plan, log a set in seconds, rest, and finish.
-- Preserve 60–70% of each workout while rotating 30–40% of accessories with explainable local rules.
-- Surface progress, fatigue, personal records, and concise coaching without requiring AI.
-- Ship the UI with realistic local data first; keep persistence, auth, and AI behind clean integration boundaries.
+- Build a mobile-first gym companion for a structured muscle-and-strength plan.
+- Make the daily loop fast: open the live plan, log sets, rest, finish, and review progress.
+- Preserve anchor lifts while rotating compatible accessories with explainable local rules.
+- Generate concise AI coaching from compact, server-authoritative training summaries.
+- Keep every account isolated with Supabase Auth and row-level security.
 
 ## UI layout
 
-- **Public:** premium landing page plus glass-panel login and signup.
-- **Onboarding:** short profile, goals, schedule, equipment, and warm-up preference flow.
-- **Desktop app:** fixed rail, contextual top bar, asymmetric dashboard grid, charts, weekly rhythm, and coach panel.
-- **Mobile app:** compact header, bottom navigation, thumb-friendly controls, sticky workout action, and floating rest timer.
-- **Workout:** session header and progress, warm-up, expandable exercise cards, quick weight/rep steppers, variation reasons, feedback, and finish state.
-- **Supporting pages:** weekly plan, exercise library/details, analytics, body tracking, records, and settings.
+- **Public:** premium animated landing page and real authentication flows.
+- **Onboarding:** profile, goals, kg/lb unit preference, schedule, equipment, and warm-up preferences saved to Supabase.
+- **Desktop:** fixed rail, contextual top bar, asymmetric live dashboard, charts, and coach panel.
+- **Mobile:** compact header, bottom navigation, slide-out account controls, thumb-friendly workout logging, and no horizontal page overflow.
+- **Supporting routes:** plan, exercise catalog/details, progress, body tracking, records, settings, password recovery, and data export.
 
 ## Database
 
-- **Identity/profile:** `profiles`, `user_preferences`, `user_equipment`.
-- **Programming:** `workout_days`, `exercises`, `exercise_categories`, `exercise_variants`, `planned_exercise_slots`, `workout_day_exercises`.
+- **Identity:** `profiles`, `user_preferences`.
+- **Programming:** `workout_days`, `exercises`, `exercise_variants`, `planned_exercise_slots`, `workout_day_exercises`.
 - **Tracking:** `workout_sessions`, `workout_sets`, `body_metrics`, `personal_records`, `exercise_feedback`.
-- **Variation history:** `selected_workout_variations` with week, source, and human-readable reason.
-- **AI efficiency:** `training_summaries`, `ai_recommendations` keyed by input hash, and `ai_usage_logs`.
-- Use Supabase Auth user IDs, row-level security, indexed history queries, JSONB only for compact summaries/AI output, and normal relational rows for workouts and sets.
+- **Variation history:** `selected_workout_variations`.
+- **AI efficiency:** `ai_recommendations`, `ai_usage_logs`, and `training_summaries`.
+- Supabase Auth IDs own every user row; RLS protects all reads and writes.
 
 ## Implementation checklist
 
-- [ ] Scaffold Next.js App Router, TypeScript, responsive design tokens, and reusable shell.
-- [ ] Add exact six-day plan, exercise metadata, progress samples, and local variation rules.
-- [ ] Build landing, auth, onboarding, dashboard, workout, plan, library, progress, body, records, and settings routes.
-- [ ] Implement set logging, quick steppers, automatic rest timer, variation swap/keep/avoid feedback, and local persistence.
-- [ ] Add animated charts, progress rings, weekly calendar, PR states, loading/empty states, and dark/light themes.
-- [ ] Add token-efficient `/api/ai/coach` with structured output, local fallback, cache boundary, and medical-safety wording.
-- [ ] Provide Supabase SQL, environment example, local setup, and deployment notes.
-- [ ] Run lint/type/build checks and visually verify desktop and mobile layouts.
+- [x] Scaffold Next.js App Router, TypeScript, responsive tokens, and the animated app shell.
+- [x] Integrate Supabase SSR authentication, protected routes, OAuth callback, password recovery, and logout.
+- [x] Replace mock dashboard, chart, plan, body, record, and settings values with live queries.
+- [x] Persist onboarding, workout sessions/sets, completed-set edits, feedback, variations, body measurements, and preferences.
+- [x] Support kg/lb display across workout logging, dashboard, progress, body tracking, records, onboarding, and settings while storing kg in the database.
+- [x] Add a deterministic variation engine backed by live catalog data and user preferences.
+- [x] Add authenticated OpenAI coaching with structured output, durable cache, usage logs, and live fallback.
+- [x] Add exercise seed data, default-plan generation, session completion, PR detection, and RLS policies.
+- [x] Remove or wire decorative controls, add CSV export, and make plan reset explicit and safe.
+- [ ] Run the two SQL files in the linked Supabase project.
+- [ ] Add the server-only OpenAI key and optional Google OAuth credentials.
+- [ ] Redeploy the latest local changes to Vercel.
+- [ ] Verify authenticated production flows after the deployment is configured and redeployed.
 
 ## Integration boundary
 
-- The application must run without external services using seeded mock data and browser storage.
-- Supabase is required only for real accounts, cross-device persistence, and production history.
-- An OpenAI API key is required only for live AI coaching; local rule-based variations and fallback coaching remain available without it.
+- Supabase is required for accounts and all user-visible training data.
+- OpenAI is optional; a server-side live-data fallback remains available without it.
+- Browser storage is only a resilience layer for active workout drafts and theme preference, never the source of dashboard analytics.

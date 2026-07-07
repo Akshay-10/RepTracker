@@ -1,9 +1,14 @@
 import { AppShell } from "@/components/app-shell";
+import { getViewer } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-export default function ProductLayout({
+export default async function ProductLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <AppShell>{children}</AppShell>;
+  const viewer = await getViewer();
+  if (!viewer) redirect("/login");
+
+  return <AppShell viewer={viewer}>{children}</AppShell>;
 }

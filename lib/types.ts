@@ -3,6 +3,7 @@ export type JointStress = "low" | "moderate" | "high";
 export type TrainingFocus = "strength" | "hypertrophy" | "pump" | "joint relief";
 
 export type ExerciseVariant = {
+  id?: string;
   name: string;
   angle: string;
   equipment: string;
@@ -11,6 +12,7 @@ export type ExerciseVariant = {
 
 export type WorkoutExercise = {
   id: string;
+  slotId?: string;
   name: string;
   target: string;
   secondary: string[];
@@ -29,9 +31,11 @@ export type WorkoutExercise = {
   formTip: string;
   mistake: string;
   variants: ExerciseVariant[];
+  selectedVariant?: ExerciseVariant;
 };
 
 export type WorkoutDay = {
+  databaseId?: string;
   key: string;
   day: string;
   shortDay: string;

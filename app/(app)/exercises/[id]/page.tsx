@@ -10,8 +10,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getLibraryExercises } from "@/lib/data";
 import { CoachTag, Panel, PanelHeader } from "@/components/ui";
+import { getExerciseCatalog } from "@/lib/live-data";
 
 export const metadata: Metadata = {
   title: "Exercise Details",
@@ -23,7 +23,7 @@ export default async function ExerciseDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const exercise = getLibraryExercises().find((item) => item.id === id);
+  const exercise = (await getExerciseCatalog()).find((item) => item.id === id);
   if (!exercise) notFound();
 
   return (

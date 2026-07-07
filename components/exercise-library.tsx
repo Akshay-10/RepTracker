@@ -2,27 +2,44 @@
 
 import {
   ArrowRight,
-  ChevronDown,
   Dumbbell,
-  Filter,
   Search,
-  SlidersHorizontal,
   Sparkles,
   X,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { getLibraryExercises } from "@/lib/data";
 import { PageHeading } from "@/components/ui";
+import type { LiveLibraryExercise } from "@/lib/live-data";
 
-const filters = ["All", "Chest", "Lats", "Biceps", "Triceps", "Side delts", "Quads", "Hamstrings", "Abs"];
-
-export function ExerciseLibrary() {
+export function ExerciseLibrary({
+  catalog,
+}: {
+  catalog: LiveLibraryExercise[];
+}) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
+  const [equipment, setEquipment] = useState("All");
+  const [movement, setMovement] = useState("All");
+  const equipmentOptions = useMemo(
+    () => ["All", ...new Set(catalog.map((item) => item.equipment))],
+    [catalog],
+  );
+  const movementOptions = useMemo(
+    () => ["All", ...new Set(catalog.map((item) => item.movement))],
+    [catalog],
+  );
+  const muscleFilters = useMemo(
+    () => [
+      "All",
+      ...new Set(
+        catalog.flatMap((item) => [item.target, ...item.secondary]).filter(Boolean),
+      ),
+    ],
+    [catalog],
+  );
   const exercises = useMemo(() => {
-    const items = getLibraryExercises();
-    return items.filter((item) => {
+    return catalog.filter((item) => {
       const matchesFilter =
         filter === "All" ||
         item.target.toLowerCase().includes(filter.toLowerCase()) ||
@@ -30,9 +47,14 @@ export function ExerciseLibrary() {
           muscle.toLowerCase().includes(filter.toLowerCase()),
         );
       const haystack = `${item.name} ${item.target} ${item.movement} ${item.equipment}`.toLowerCase();
-      return matchesFilter && haystack.includes(query.toLowerCase());
+      return (
+        matchesFilter &&
+        (equipment === "All" || item.equipment === equipment) &&
+        (movement === "All" || item.movement === movement) &&
+        haystack.includes(query.toLowerCase())
+      );
     });
-  }, [query, filter]);
+  }, [catalog, query, filter, equipment, movement]);
 
   return (
     <>
@@ -40,11 +62,7 @@ export function ExerciseLibrary() {
         eyebrow="MOVEMENT LIBRARY"
         title="Find the right tool."
         copy="Explore the movements in your plan, understand their intent, and choose compatible variations."
-        actions={
-          <button className="button button-secondary">
-            <SlidersHorizontal size={16} /> Advanced filters
-          </button>
-        }
+        actions={<span className="source-pill ai">Live catalog</span>}
       />
 
       <div className="library-toolbar">
@@ -61,16 +79,22 @@ export function ExerciseLibrary() {
             </button>
           )}
         </label>
-        <button className="filter-button">
-          <Filter size={17} /> Equipment <ChevronDown size={15} />
-        </button>
-        <button className="filter-button">
-          Movement <ChevronDown size={15} />
-        </button>
+        <label className="filter-select">
+          <span>Equipment</span>
+          <select value={equipment} onChange={(event) => setEquipment(event.target.value)}>
+            {equipmentOptions.map((item) => <option value={item} key={item}>{item}</option>)}
+          </select>
+        </label>
+        <label className="filter-select">
+          <span>Movement</span>
+          <select value={movement} onChange={(event) => setMovement(event.target.value)}>
+            {movementOptions.map((item) => <option value={item} key={item}>{item}</option>)}
+          </select>
+        </label>
       </div>
 
       <div className="filter-pills">
-        {filters.map((item) => (
+        {muscleFilters.map((item) => (
           <button
             className={filter === item ? "active" : ""}
             onClick={() => setFilter(item)}
@@ -83,7 +107,7 @@ export function ExerciseLibrary() {
 
       <div className="library-count">
         <span><strong>{exercises.length}</strong> movements</span>
-        <span>Sorted by <strong>Plan relevance</strong> <ChevronDown size={14} /></span>
+          <span>Sorted by <strong>Muscle and name</strong></span>
       </div>
 
       {exercises.length ? (
@@ -118,7 +142,12 @@ export function ExerciseLibrary() {
           <Search size={28} />
           <h3>No matching movements</h3>
           <p>Try a different muscle, equipment type, or search term.</p>
-          <button className="button button-secondary" onClick={() => { setFilter("All"); setQuery(""); }}>
+          <button className="button button-secondary" onClick={() => {
+            setFilter("All");
+            setEquipment("All");
+            setMovement("All");
+            setQuery("");
+          }}>
             Clear filters
           </button>
         </div>

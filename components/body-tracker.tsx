@@ -1,10 +1,7 @@
 "use client";
 
 import {
-  Camera,
   Check,
-  ChevronLeft,
-  ChevronRight,
   Plus,
   Ruler,
   Scale,
@@ -12,21 +9,110 @@ import {
   X,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { bodyMetrics } from "@/lib/data";
 import { WeightChart } from "@/components/charts";
 import { PageHeading, Panel, PanelHeader } from "@/components/ui";
+import type { LiveBodyMetric } from "@/lib/live-data";
+import {
+  displayWeight,
+  kgToUnit,
+  unitToKg,
+  type WeightUnit,
+} from "@/lib/units";
+import { createClient } from "@/utils/supabase/client";
 
-export function BodyTracker() {
+const measurementFields = [
+  { key: "weight_kg", property: "weightKg", label: "Body weight", unit: "kg" },
+  { key: "chest_cm", property: "chestCm", label: "Chest", unit: "cm" },
+  { key: "waist_cm", property: "waistCm", label: "Waist", unit: "cm" },
+  { key: "arm_cm", property: "armCm", label: "Arms", unit: "cm" },
+  { key: "thigh_cm", property: "thighCm", label: "Thighs", unit: "cm" },
+  { key: "shoulder_cm", property: "shoulderCm", label: "Shoulders", unit: "cm" },
+] as const;
+
+export function BodyTracker({
+  metrics,
+  weightTrend,
+  weightUnit,
+}: {
+  metrics: LiveBodyMetric[];
+  weightTrend: Array<{ date: string; weight: number }>;
+  weightUnit: WeightUnit;
+}) {
+  const router = useRouter();
   const [modalOpen, setModalOpen] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
+  const latest = metrics[0] ?? null;
+  const oldest = metrics.at(-1) ?? null;
+  const weightDelta =
+    latest && oldest
+      ? Number((latest.weightKg - oldest.weightKg).toFixed(2))
+      : null;
+  const displayedWeightTrend = weightTrend.map((point) => ({
+    ...point,
+    weight: Number(kgToUnit(point.weight, weightUnit).toFixed(1)),
+  }));
 
-  const save = (event: React.FormEvent) => {
+  const save = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    setError("");
+    const formData = new FormData(event.currentTarget);
+    const supabase = createClient();
+    const { data: authData, error: authError } = await supabase.auth.getClaims();
+    const userId = authData?.claims?.sub;
+    if (authError || !userId) {
+      setError("Your session expired. Please sign in again.");
+      return;
+    }
+
+    const numericValue = (key: string) => {
+      const value = String(formData.get(key) ?? "").trim();
+      return value ? Number(value) : null;
+    };
+    const displayWeightValue = numericValue("weight_kg");
+    const weightKg = displayWeightValue
+      ? Number(unitToKg(displayWeightValue, weightUnit).toFixed(2))
+      : null;
+    if (!weightKg) {
+      setError("Body weight is required.");
+      return;
+    }
+
+    const payload = {
+      user_id: userId,
+      measured_on: new Intl.DateTimeFormat("en-CA", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        timeZone: "Asia/Kolkata",
+      }).format(new Date()),
+      weight_kg: weightKg,
+      chest_cm: numericValue("chest_cm"),
+      waist_cm: numericValue("waist_cm"),
+      arm_cm: numericValue("arm_cm"),
+      thigh_cm: numericValue("thigh_cm"),
+      shoulder_cm: numericValue("shoulder_cm"),
+      notes: String(formData.get("notes") ?? "").trim() || null,
+    };
+    const { error: saveError } = await supabase
+      .from("body_metrics")
+      .upsert(payload, { onConflict: "user_id,measured_on" });
+    if (saveError) {
+      setError(saveError.message);
+      return;
+    }
+    await supabase
+      .from("profiles")
+      .update({ current_weight_kg: weightKg, updated_at: new Date().toISOString() })
+      .eq("id", userId);
+
     setSaved(true);
     window.setTimeout(() => {
       setModalOpen(false);
       setSaved(false);
+      router.refresh();
     }, 800);
   };
 
@@ -47,50 +133,54 @@ export function BodyTracker() {
         <div className="body-silhouette" aria-hidden="true">
           <div className="silhouette-head" />
           <div className="silhouette-body" />
-          <span className="measure-line chest-line"><i />94.5 cm <small>CHEST</small></span>
-          <span className="measure-line waist-line"><i />76.0 cm <small>WAIST</small></span>
-          <span className="measure-line thigh-line"><i />53.4 cm <small>THIGH</small></span>
+          <span className="measure-line chest-line"><i />{latest?.chestCm?.toFixed(1) ?? "—"} cm <small>CHEST</small></span>
+          <span className="measure-line waist-line"><i />{latest?.waistCm?.toFixed(1) ?? "—"} cm <small>WAIST</small></span>
+          <span className="measure-line thigh-line"><i />{latest?.thighCm?.toFixed(1) ?? "—"} cm <small>THIGH</small></span>
         </div>
         <div className="body-summary-copy">
-          <p className="eyebrow">CURRENT PHYSIQUE · JUL 2026</p>
-          <h2>63.0 <small>kg</small></h2>
-          <p>Up 1.3 kg over 6 weeks at a steady lean-gain pace.</p>
+          <p className="eyebrow">CURRENT PHYSIQUE · {latest?.date ?? "NO MEASUREMENT"}</p>
+          <h2>{displayWeight(latest?.weightKg, weightUnit).replace(` ${weightUnit}`, "")} <small>{weightUnit}</small></h2>
+          <p>{weightDelta === null ? "Add at least two measurements to establish a trend." : `${weightDelta >= 0 ? "Up" : "Down"} ${Math.abs(kgToUnit(weightDelta, weightUnit)).toFixed(1)} ${weightUnit} across your saved measurements.`}</p>
           <div className="lean-rate">
             <Sparkles size={17} />
-            <span><strong>On target</strong><small>+0.22 kg per week · goal range 0.15–0.30</small></span>
+            <span><strong>{weightDelta === null ? "Baseline needed" : "Live trend"}</strong><small>Calculated only from saved body measurements.</small></span>
           </div>
           <div className="body-summary-nav">
-            <button aria-label="Previous month"><ChevronLeft size={17} /></button>
-            <span>Compared with <strong>May 25</strong></span>
-            <button aria-label="Next month" disabled><ChevronRight size={17} /></button>
+            <span>Compared with <strong>{oldest?.date ?? "no baseline"}</strong></span>
           </div>
         </div>
       </div>
 
       <div className="metric-grid">
-        {bodyMetrics.map((metric, index) => (
-          <article key={metric.label}>
+        {measurementFields.map((field, index) => {
+          const current = latest?.[field.property];
+          const initial = oldest?.[field.property];
+          const unit = field.key === "weight_kg" ? weightUnit : field.unit;
+          const delta =
+            typeof current === "number" && typeof initial === "number"
+              ? current - initial
+              : null;
+          const displayedCurrent =
+            typeof current === "number" && field.key === "weight_kg"
+              ? kgToUnit(current, weightUnit)
+              : current;
+          const displayedDelta =
+            typeof delta === "number" && field.key === "weight_kg"
+              ? kgToUnit(delta, weightUnit)
+              : delta;
+          return <article key={field.key}>
             <span className="metric-icon">{index === 0 ? <Scale size={17} /> : <Ruler size={17} />}</span>
-            <small>{metric.label}</small>
-            <strong>{metric.value} <em>{metric.unit}</em></strong>
-            <span>{metric.delta}</span>
-          </article>
-        ))}
+            <small>{field.label}</small>
+            <strong>{typeof displayedCurrent === "number" ? displayedCurrent.toFixed(1) : "—"} <em>{unit}</em></strong>
+            <span>{displayedDelta === null ? "No comparison" : `${displayedDelta >= 0 ? "+" : ""}${displayedDelta.toFixed(1)} ${unit}`}</span>
+          </article>;
+        })}
       </div>
 
-      <div className="body-grid">
+      <div className="body-grid body-grid-single">
         <Panel>
           <PanelHeader eyebrow="WEIGHT TREND" title="Slow gain, strong signal" />
-          <WeightChart />
-        </Panel>
-        <Panel className="photo-panel">
-          <PanelHeader eyebrow="PROGRESS PHOTOS" title="Monthly check-in" />
-          <div className="photo-grid">
-            <button><Camera size={24} /><span>Front</span><small>Add photo</small></button>
-            <button><Camera size={24} /><span>Side</span><small>Add photo</small></button>
-            <button><Camera size={24} /><span>Back</span><small>Add photo</small></button>
-          </div>
-          <p>Photos stay private and are never sent to the AI coach.</p>
+          <WeightChart data={displayedWeightTrend} unit={weightUnit} />
         </Panel>
       </div>
 
@@ -113,18 +203,24 @@ export function BodyTracker() {
               exit={{ opacity: 0, y: 25, scale: 0.97 }}
             >
               <div className="modal-head">
-                <div><p className="eyebrow">TODAY · 06 JUL</p><h2>New measurement</h2></div>
+                <div>
+                  <p className="eyebrow">
+                    TODAY · {new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", timeZone: "Asia/Kolkata" }).format(new Date()).toUpperCase()}
+                  </p>
+                  <h2>New measurement</h2>
+                </div>
                 <button type="button" className="icon-button" onClick={() => setModalOpen(false)}><X size={19} /></button>
               </div>
               <div className="measure-form-grid">
-                {bodyMetrics.map((metric, index) => (
-                  <label key={metric.label} className={index === 0 ? "wide" : ""}>
-                    <span>{metric.label}</span>
-                    <div><input type="number" step="0.1" defaultValue={metric.value} /><em>{metric.unit}</em></div>
+                {measurementFields.map((field, index) => (
+                  <label key={field.key} className={index === 0 ? "wide" : ""}>
+                    <span>{field.label}</span>
+                    <div><input name={field.key} type="number" step="0.1" defaultValue={field.key === "weight_kg" && typeof latest?.weightKg === "number" ? kgToUnit(latest.weightKg, weightUnit).toFixed(1) : latest?.[field.property] ?? ""} required={index === 0} /><em>{field.key === "weight_kg" ? weightUnit : field.unit}</em></div>
                   </label>
                 ))}
               </div>
-              <label className="notes-field"><span>Notes (optional)</span><textarea placeholder="Sleep, appetite, how you feel…" /></label>
+              <label className="notes-field"><span>Notes (optional)</span><textarea name="notes" defaultValue={latest?.notes ?? ""} placeholder="Sleep, appetite, how you feel…" /></label>
+              {error && <p className="auth-message error" role="alert">{error}</p>}
               <button className="button button-primary full-button" type="submit">
                 {saved ? <><Check size={17} /> Saved</> : "Save measurement"}
               </button>

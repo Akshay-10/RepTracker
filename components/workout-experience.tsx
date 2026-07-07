@@ -13,7 +13,6 @@ import {
   Flame,
   Heart,
   Minus,
-  MoreHorizontal,
   Pause,
   Play,
   Plus,
@@ -24,9 +23,9 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
-import { getTodayWorkout } from "@/lib/data";
 import type {
   ExerciseVariant,
   LoggedSet,
@@ -34,11 +33,53 @@ import type {
 } from "@/lib/types";
 import { estimateOneRepMax, suggestVariation } from "@/lib/variation-engine";
 import { CoachTag, ProgressRing } from "@/components/ui";
+import { createClient } from "@/utils/supabase/client";
+import {
+  displayLoadInput,
+  displayVolume,
+  displayWeight,
+  kgToUnit,
+  unitToKg,
+  type WeightUnit,
+} from "@/lib/units";
 
 function secondsLabel(seconds: number) {
   const minutes = Math.floor(seconds / 60);
   const rest = seconds % 60;
   return `${minutes}:${rest.toString().padStart(2, "0")}`;
+}
+
+function formatPreviousBest(value: string, unit: WeightUnit) {
+  const match = value.match(/^([\d.]+)\s*kg\s*×\s*(\d+)/i);
+  if (!match) return value;
+  return `${displayWeight(Number(match[1]), unit)} × ${match[2]}`;
+}
+
+function playTimerCue() {
+  try {
+    type WindowWithAudio = Window & {
+      webkitAudioContext?: typeof window.AudioContext;
+    };
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as WindowWithAudio).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const context = new AudioContextClass();
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = 740;
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.45);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + 0.5);
+    window.setTimeout(() => void context.close(), 700);
+  } catch {
+    // Browser audio can be blocked. The visual timer still completes.
+  }
 }
 
 function RestTimer({
@@ -93,17 +134,27 @@ function RestTimer({
 function VariationSheet({
   exercise,
   selected,
+  mode,
+  avoided,
+  equipment,
+  weekNumber,
   onSelect,
   onClose,
 }: {
   exercise: WorkoutExercise;
   selected: string;
+  mode: "stable" | "moderate" | "high";
+  avoided: string[];
+  equipment: string[];
+  weekNumber: number;
   onSelect: (variant: ExerciseVariant | null) => void;
   onClose: () => void;
 }) {
   const suggestion = suggestVariation(exercise, {
-    mode: "moderate",
-    weekNumber: 4,
+    mode,
+    avoided,
+    equipment,
+    weekNumber,
   });
   const current: ExerciseVariant = {
     name: exercise.name,
@@ -192,19 +243,23 @@ function ExerciseCard({
   index,
   sets,
   selectedVariant,
+  weightUnit,
   defaultOpen,
   onSetChange,
   onComplete,
   onOpenVariations,
+  onFeedback,
 }: {
   exercise: WorkoutExercise;
   index: number;
   sets: LoggedSet[];
   selectedVariant?: ExerciseVariant;
+  weightUnit: WeightUnit;
   defaultOpen: boolean;
   onSetChange: (setNumber: number, field: "weight" | "reps", value: number) => void;
   onComplete: (setNumber: number) => void;
   onOpenVariations: () => void;
+  onFeedback: (type: string, message: string) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const [reasonOpen, setReasonOpen] = useState(false);
@@ -274,15 +329,15 @@ function ExerciseCard({
                 <ArrowLeftRight size={15} />
                 Swap variation
               </button>
-              <button onClick={() => setFeedback("Kept for next week")}>
+              <button onClick={() => { setFeedback("Kept for next week"); onFeedback("keep_next_week", "Kept for next week"); }}>
                 <Heart size={15} />
                 Keep next week
               </button>
-              <button onClick={() => setFeedback("Added to avoid list")}>
+              <button onClick={() => { setFeedback("Added to avoid list"); onFeedback("avoid", "Added to avoid list"); }}>
                 <ThumbsDown size={15} />
                 Avoid
               </button>
-              <button className="pain-button" onClick={() => setFeedback("Pain flag saved — reduce load and stop if pain persists")}>
+              <button className="pain-button" onClick={() => { setFeedback("Pain flag saved — reduce load and stop if pain persists"); onFeedback("pain", "Pain flag saved"); }}>
                 <AlertTriangle size={15} />
                 Felt pain
               </button>
@@ -299,11 +354,11 @@ function ExerciseCard({
             <div className="previous-strip">
               <span>
                 <small>LAST SESSION</small>
-                <strong>{exercise.previousBest}</strong>
+                <strong>{formatPreviousBest(exercise.previousBest, weightUnit)}</strong>
               </span>
               <span>
                 <small>BEST EST. 1RM</small>
-                <strong>{estimateOneRepMax(exercise.lastWeight, exercise.repMin + 2)} kg</strong>
+                <strong>{displayWeight(estimateOneRepMax(exercise.lastWeight, exercise.repMin + 2), weightUnit)}</strong>
               </span>
               <span>
                 <small>TODAY’S TARGET</small>
@@ -314,7 +369,7 @@ function ExerciseCard({
             <div className="set-table">
               <div className="set-table-head">
                 <span>SET</span>
-                <span>WEIGHT · KG</span>
+                <span>WEIGHT · {weightUnit.toUpperCase()}</span>
                 <span>REPS</span>
                 <span>STATUS</span>
               </div>
@@ -328,7 +383,7 @@ function ExerciseCard({
                   </span>
                   <div className="stepper">
                     <button
-                      onClick={() => onSetChange(set.setNumber, "weight", Math.max(0, set.weight - 2.5))}
+                      onClick={() => onSetChange(set.setNumber, "weight", Math.max(0, kgToUnit(set.weight, weightUnit) - (weightUnit === "lb" ? 5 : 2.5)))}
                       aria-label="Decrease weight"
                     >
                       <Minus size={14} />
@@ -336,13 +391,13 @@ function ExerciseCard({
                     <input
                       aria-label={`Set ${set.setNumber} weight`}
                       inputMode="decimal"
-                      value={set.weight}
+                      value={displayLoadInput(set.weight, weightUnit)}
                       onChange={(event) =>
                         onSetChange(set.setNumber, "weight", Number(event.target.value))
                       }
                     />
                     <button
-                      onClick={() => onSetChange(set.setNumber, "weight", set.weight + 2.5)}
+                      onClick={() => onSetChange(set.setNumber, "weight", kgToUnit(set.weight, weightUnit) + (weightUnit === "lb" ? 5 : 2.5))}
                       aria-label="Increase weight"
                     >
                       <Plus size={14} />
@@ -383,7 +438,6 @@ function ExerciseCard({
             </div>
             <div className="exercise-footer">
               <p><Zap size={14} /> {exercise.formTip}</p>
-              <button aria-label="More exercise options"><MoreHorizontal size={18} /></button>
             </div>
           </motion.div>
         )}
@@ -392,8 +446,31 @@ function ExerciseCard({
   );
 }
 
-export function WorkoutExperience() {
-  const workout = getTodayWorkout();
+export function WorkoutExperience({
+  workout,
+  variationMode,
+  avoidedExercises,
+  equipment,
+  weightUnit,
+  includeWarmup,
+  autoStartRestTimer,
+  restTimerSound,
+}: {
+  workout: import("@/lib/types").WorkoutDay;
+  variationMode: "stable" | "moderate" | "high";
+  avoidedExercises: string[];
+  equipment: string[];
+  weightUnit: WeightUnit;
+  includeWarmup: boolean;
+  autoStartRestTimer: boolean;
+  restTimerSound: boolean;
+}) {
+  const router = useRouter();
+  const [weekNumber] = useState(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 1);
+    return Math.max(1, Math.ceil((now.getTime() - start.getTime()) / 604_800_000));
+  });
   const [loggedSets, setLoggedSets] = useState<Record<string, LoggedSet[]>>(() =>
     Object.fromEntries(
       workout.exercises.map((item) => [
@@ -410,43 +487,62 @@ export function WorkoutExperience() {
   );
   const [timer, setTimer] = useState({ seconds: 0, total: 0, active: false });
   const [variationExercise, setVariationExercise] = useState<WorkoutExercise | null>(null);
-  const [selectedVariants, setSelectedVariants] = useState<Record<string, ExerciseVariant>>({});
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, ExerciseVariant>>(
+    () =>
+      Object.fromEntries(
+        workout.exercises.flatMap((exercise) =>
+          exercise.selectedVariant
+            ? [[exercise.id, exercise.selectedVariant] as const]
+            : [],
+        ),
+      ),
+  );
   const [warmupOpen, setWarmupOpen] = useState(true);
   const [warmupDone, setWarmupDone] = useState(false);
   const [finished, setFinished] = useState(false);
+  const [finishedDuration, setFinishedDuration] = useState(0);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [startedAt] = useState(() => Date.now());
+  const [syncError, setSyncError] = useState("");
+  const storageKey = `repforge-active-workout-${workout.databaseId ?? workout.key}`;
 
   useEffect(() => {
-    const saved = localStorage.getItem("repforge-active-workout");
+    const saved = localStorage.getItem(storageKey);
+    const savedSession = localStorage.getItem(`${storageKey}-session`);
     let timeout: number | undefined;
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         timeout = window.setTimeout(() => setLoggedSets(parsed), 0);
       } catch {
-        localStorage.removeItem("repforge-active-workout");
+        localStorage.removeItem(storageKey);
       }
+    }
+    if (savedSession) {
+      timeout = window.setTimeout(() => setSessionId(savedSession), 0);
     }
     return () => {
       if (timeout) window.clearTimeout(timeout);
     };
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
-    localStorage.setItem("repforge-active-workout", JSON.stringify(loggedSets));
-  }, [loggedSets]);
+    localStorage.setItem(storageKey, JSON.stringify(loggedSets));
+  }, [loggedSets, storageKey]);
 
   useEffect(() => {
     if (!timer.active || timer.seconds <= 0) return;
     const interval = window.setInterval(() => {
       setTimer((current) => {
         if (current.seconds <= 1) {
+          if (restTimerSound) playTimerCue();
           return { ...current, seconds: 0, active: false };
         }
         return { ...current, seconds: current.seconds - 1 };
       });
     }, 1000);
     return () => window.clearInterval(interval);
-  }, [timer.active, timer.seconds]);
+  }, [restTimerSound, timer.active, timer.seconds]);
 
   const completeSets = useMemo(
     () =>
@@ -467,15 +563,86 @@ export function WorkoutExperience() {
     field: "weight" | "reps",
     value: number,
   ) => {
+    if (!Number.isFinite(value)) return;
+    const nextValue =
+      field === "weight"
+        ? Number(unitToKg(Math.max(0, value), weightUnit).toFixed(2))
+        : Math.max(0, Math.round(value));
+    const exercise = workout.exercises.find((item) => item.id === exerciseId);
+    const currentSet = loggedSets[exerciseId]?.find(
+      (set) => set.setNumber === setNumber,
+    );
+    const setToSync = currentSet?.completed
+      ? { ...currentSet, [field]: nextValue }
+      : null;
     setLoggedSets((current) => ({
       ...current,
       [exerciseId]: current[exerciseId].map((set) =>
-        set.setNumber === setNumber ? { ...set, [field]: value } : set,
+        set.setNumber === setNumber ? { ...set, [field]: nextValue } : set,
       ),
     }));
+    if (exercise && setToSync) {
+      void syncCompletedSet(exercise, setToSync);
+    }
   };
 
-  const toggleComplete = (exercise: WorkoutExercise, setNumber: number) => {
+  const ensureSession = async () => {
+    if (sessionId) return sessionId;
+    const supabase = createClient();
+    const { data: authData } = await supabase.auth.getClaims();
+    const userId = authData?.claims?.sub;
+    if (!userId) throw new Error("Your session expired. Please sign in again.");
+    const { data, error } = await supabase
+      .from("workout_sessions")
+      .insert({
+        user_id: userId,
+        workout_day_id: workout.databaseId ?? null,
+        started_at: new Date(startedAt).toISOString(),
+        status: "active",
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    setSessionId(data.id);
+    localStorage.setItem(`${storageKey}-session`, data.id);
+    return data.id as string;
+  };
+
+  const persistSet = async (
+    id: string,
+    exercise: WorkoutExercise,
+    set: LoggedSet,
+  ) => {
+    const supabase = createClient();
+    const { error } = await supabase.from("workout_sets").upsert(
+      {
+        session_id: id,
+        exercise_id: exercise.id,
+        set_number: set.setNumber,
+        weight: set.weight,
+        reps: set.reps,
+        completed: set.completed,
+        rest_seconds: exercise.rest,
+      },
+      { onConflict: "session_id,exercise_id,set_number" },
+    );
+    if (error) throw error;
+  };
+
+  const syncCompletedSet = async (
+    exercise: WorkoutExercise,
+    set: LoggedSet,
+  ) => {
+    try {
+      setSyncError("");
+      const id = await ensureSession();
+      await persistSet(id, exercise, set);
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : "Set sync failed.");
+    }
+  };
+
+  const toggleComplete = async (exercise: WorkoutExercise, setNumber: number) => {
     const currentSet = loggedSets[exercise.id].find(
       (set) => set.setNumber === setNumber,
     );
@@ -488,12 +655,161 @@ export function WorkoutExperience() {
           : set,
       ),
     }));
-    if (completing) {
+    if (completing && autoStartRestTimer) {
       setTimer({
         seconds: exercise.rest,
         total: exercise.rest,
         active: true,
       });
+    }
+    try {
+      setSyncError("");
+      const id = await ensureSession();
+      if (currentSet) {
+        await persistSet(id, exercise, {
+          ...currentSet,
+          completed: completing,
+        });
+      }
+    } catch (error) {
+      setSyncError(error instanceof Error ? error.message : "Set sync failed.");
+    }
+  };
+
+  const saveFeedback = async (
+    exercise: WorkoutExercise,
+    feedbackType: string,
+  ) => {
+    const supabase = createClient();
+    const { data: authData } = await supabase.auth.getClaims();
+    const userId = authData?.claims?.sub;
+    if (!userId) return;
+    const { error } = await supabase.from("exercise_feedback").insert({
+      user_id: userId,
+      exercise_id: exercise.id,
+      feedback_type: feedbackType,
+    });
+    if (error) setSyncError(error.message);
+
+    const preferenceField =
+      feedbackType === "avoid"
+        ? "exercises_to_avoid"
+        : feedbackType === "pain"
+          ? "injuries_or_pain"
+          : feedbackType === "keep_next_week"
+            ? "favorite_exercises"
+            : null;
+    if (!preferenceField) return;
+
+    const selectedName = selectedVariants[exercise.id]?.name ?? exercise.name;
+    const preferenceValue =
+      feedbackType === "pain" ? `${selectedName}: pain reported` : selectedName;
+    const { data: preferences } = await supabase
+      .from("user_preferences")
+      .select(preferenceField)
+      .eq("user_id", userId)
+      .maybeSingle();
+    const preferenceRow = preferences as unknown as Record<string, unknown> | null;
+    const currentValues = Array.isArray(preferenceRow?.[preferenceField])
+      ? (preferenceRow[preferenceField] as string[])
+      : [];
+    if (!currentValues.includes(preferenceValue)) {
+      const { error: preferenceError } = await supabase
+        .from("user_preferences")
+        .update({
+          [preferenceField]: [...currentValues, preferenceValue],
+          updated_at: new Date().toISOString(),
+        })
+        .eq("user_id", userId);
+      if (preferenceError) setSyncError(preferenceError.message);
+    }
+  };
+
+  const saveVariation = async (
+    exercise: WorkoutExercise,
+    choice: ExerciseVariant | null,
+  ) => {
+    if (!exercise.slotId || !workout.databaseId) return;
+    const supabase = createClient();
+    const { data: authData } = await supabase.auth.getClaims();
+    const userId = authData?.claims?.sub;
+    if (!userId) return;
+    const todayKey = new Intl.DateTimeFormat("en-CA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: "Asia/Kolkata",
+    }).format(new Date());
+    const indiaToday = new Date(`${todayKey}T00:00:00+05:30`);
+    const dayName = new Intl.DateTimeFormat("en-US", {
+      weekday: "long",
+      timeZone: "Asia/Kolkata",
+    }).format(indiaToday);
+    const dayIndex = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].indexOf(dayName);
+    const distance = dayIndex === 0 ? 6 : dayIndex - 1;
+    const week = new Date(indiaToday.getTime() - distance * 86_400_000);
+    const weekStart = new Intl.DateTimeFormat("en-CA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: "Asia/Kolkata",
+    }).format(week);
+    if (!choice) {
+      const { error } = await supabase
+        .from("selected_workout_variations")
+        .delete()
+        .eq("user_id", userId)
+        .eq("slot_id", exercise.slotId)
+        .eq("week_start_date", weekStart);
+      if (error) setSyncError(error.message);
+      return;
+    }
+    if (!choice.id) return;
+    const { error } = await supabase
+      .from("selected_workout_variations")
+      .upsert(
+        {
+          user_id: userId,
+          workout_day_id: workout.databaseId,
+          slot_id: exercise.slotId,
+          exercise_variant_id: choice.id,
+          week_start_date: weekStart,
+          reason: `User selected ${choice.name} from compatible live variations.`,
+          source: "user_selected",
+        },
+        { onConflict: "user_id,slot_id,week_start_date" },
+      );
+    if (error) setSyncError(error.message);
+  };
+
+  const finishWorkout = async () => {
+    try {
+      const id = await ensureSession();
+      const supabase = createClient();
+      const duration = Math.max(1, Math.round((Date.now() - startedAt) / 60_000));
+      const { error: rpcError } = await supabase.rpc("finish_workout_session", {
+        p_session_id: id,
+      });
+      if (rpcError) {
+        const { error } = await supabase
+          .from("workout_sessions")
+          .update({
+            status: "completed",
+            completed_at: new Date().toISOString(),
+            duration_minutes: duration,
+          })
+          .eq("id", id);
+        if (error) throw error;
+      }
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem(`${storageKey}-session`);
+      setFinishedDuration(duration);
+      setFinished(true);
+      router.refresh();
+    } catch (error) {
+      setSyncError(
+        error instanceof Error ? error.message : "Workout completion failed.",
+      );
     }
   };
 
@@ -511,13 +827,13 @@ export function WorkoutExperience() {
         <p className="eyebrow">SESSION COMPLETE</p>
         <h1>Proof, forged.</h1>
         <p>
-          You completed {completeSets} working sets and kept the streak alive.
+          You completed {completeSets} working sets and saved the session.
           Recovery starts now.
         </p>
         <div className="finish-stats">
-          <span><strong>78</strong><small>minutes</small></span>
+          <span><strong>{finishedDuration}</strong><small>minutes</small></span>
           <span><strong>{completeSets}</strong><small>sets logged</small></span>
-          <span><strong>8.9k</strong><small>kg volume</small></span>
+          <span><strong>{displayVolume(Object.values(loggedSets).flat().filter((set) => set.completed).reduce((sum, set) => sum + set.weight * set.reps, 0), weightUnit)}</strong><small>volume</small></span>
         </div>
         <div className="finish-actions">
           <Link className="button button-primary" href="/dashboard">Back to dashboard</Link>
@@ -539,9 +855,6 @@ export function WorkoutExperience() {
           <div className="workout-header-actions">
             <span><Clock3 size={15} /> {workout.duration} min</span>
             <span><Dumbbell size={15} /> {workout.exercises.length} movements</span>
-            <button className="icon-button" aria-label="Workout options">
-              <MoreHorizontal size={19} />
-            </button>
           </div>
         </div>
         <div className="workout-progress-row">
@@ -556,7 +869,7 @@ export function WorkoutExperience() {
         </div>
       </header>
 
-      <section className={`warmup-card ${warmupDone ? "done" : ""}`}>
+      {includeWarmup && <section className={`warmup-card ${warmupDone ? "done" : ""}`}>
         <button className="warmup-heading" onClick={() => setWarmupOpen(!warmupOpen)}>
           <span className="warmup-icon"><Flame size={18} /></span>
           <span>
@@ -587,29 +900,32 @@ export function WorkoutExperience() {
             </motion.div>
           )}
         </AnimatePresence>
-      </section>
+      </section>}
 
       <div className="exercise-list-heading">
         <div>
           <p className="eyebrow">WORKING SETS</p>
           <h2>Build the session</h2>
         </div>
-        <span><CircleHelp size={14} /> Tap a set to start rest automatically</span>
+        <span><CircleHelp size={14} /> {autoStartRestTimer ? "Complete a set to start rest automatically" : "Complete a set to save it to your log"}</span>
       </div>
 
       <div className="exercise-list">
+        {syncError && <div className="feedback-banner"><AlertTriangle size={15} />{syncError}<button onClick={() => setSyncError("")}><X size={13} /></button></div>}
         {workout.exercises.map((exercise, index) => (
           <ExerciseCard
             exercise={exercise}
             index={index}
             sets={loggedSets[exercise.id] ?? []}
             selectedVariant={selectedVariants[exercise.id]}
+            weightUnit={weightUnit}
             defaultOpen={index === 0}
             onSetChange={(setNumber, field, value) =>
               setValue(exercise.id, setNumber, field, value)
             }
             onComplete={(setNumber) => toggleComplete(exercise, setNumber)}
             onOpenVariations={() => setVariationExercise(exercise)}
+            onFeedback={(type) => saveFeedback(exercise, type)}
             key={exercise.id}
           />
         ))}
@@ -622,7 +938,7 @@ export function WorkoutExperience() {
         </div>
         <button
           className="button button-primary"
-          onClick={() => setFinished(true)}
+          onClick={finishWorkout}
           disabled={completeSets === 0}
         >
           <CheckCircle2 size={18} />
@@ -656,7 +972,12 @@ export function WorkoutExperience() {
           <VariationSheet
             exercise={variationExercise}
             selected={selectedVariants[variationExercise.id]?.name ?? variationExercise.name}
+            mode={variationMode}
+            avoided={avoidedExercises}
+            equipment={equipment}
+            weekNumber={weekNumber}
             onSelect={(choice) => {
+              void saveVariation(variationExercise, choice);
               setSelectedVariants((current) => {
                 const next = { ...current };
                 if (choice) next[variationExercise.id] = choice;

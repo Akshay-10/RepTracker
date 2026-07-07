@@ -3,7 +3,6 @@
 import {
   Activity,
   BarChart3,
-  Bell,
   BicepsFlexed,
   BookOpen,
   CalendarRange,
@@ -25,6 +24,9 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Brand } from "@/components/brand";
+import type { Viewer } from "@/lib/auth";
+import { SignOutButton } from "@/components/sign-out-button";
+import { displayWeight } from "@/lib/units";
 
 const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: Gauge },
@@ -50,7 +52,13 @@ function isCurrent(pathname: string, href: string) {
   return pathname.startsWith(href);
 }
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+export function AppShell({
+  children,
+  viewer,
+}: {
+  children: React.ReactNode;
+  viewer: Viewer;
+}) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">(() => {
@@ -68,6 +76,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     document.documentElement.dataset.theme = nextTheme;
     localStorage.setItem("repforge-theme", nextTheme);
   };
+  const todayLabel = new Intl.DateTimeFormat("en-IN", {
+    weekday: "long",
+    day: "2-digit",
+    month: "short",
+    timeZone: "Asia/Kolkata",
+  })
+    .format(new Date())
+    .toUpperCase();
 
   return (
     <div className="app-shell">
@@ -104,19 +120,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
         <div className="sidebar-block">
           <div className="block-top">
-            <span>TRAINING BLOCK</span>
-            <strong>WEEK 4 / 6</strong>
+            <span>DATA STATUS</span>
+            <strong>LIVE</strong>
           </div>
-          <div className="mini-progress">
-            <span style={{ width: "66%" }} />
-          </div>
-          <p>Hypertrophy base</p>
+          <p>Supabase cloud sync for this account</p>
         </div>
         <Link className="sidebar-user" href="/settings">
-          <span className="avatar">AK</span>
+          <span className="avatar">{viewer.initials}</span>
           <span>
-            <strong>Akshay</strong>
-            <small>Lean mass · 63 kg</small>
+            <strong>{viewer.name}</strong>
+            <small>
+              {viewer.currentWeightKg
+                ? `${viewer.experienceLevel} · ${displayWeight(viewer.currentWeightKg, viewer.units)}`
+                : viewer.experienceLevel}
+            </small>
           </span>
           <ChevronDown size={15} />
         </Link>
@@ -125,10 +142,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="mobile-header">
         <Brand />
         <div className="mobile-header-actions">
-          <button className="icon-button" aria-label="Notifications">
-            <Bell size={18} />
-            <span className="notification-dot" />
-          </button>
           <button
             className="icon-button"
             onClick={() => setMenuOpen(true)}
@@ -142,7 +155,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <div className="app-column">
         <header className="topbar">
           <div>
-            <p className="eyebrow">MONDAY · 06 JUL</p>
+            <p className="eyebrow">{todayLabel}</p>
             <strong>Make today count.</strong>
           </div>
           <div className="topbar-actions">
@@ -153,18 +166,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            <button className="icon-button" aria-label="Notifications">
-              <Bell size={18} />
-              <span className="notification-dot" />
-            </button>
             <div className="topbar-divider" />
             <div className="topbar-user">
-              <span className="avatar">AK</span>
+              <span className="avatar">{viewer.initials}</span>
               <span>
-                <strong>Akshay</strong>
-                <small>Intermediate</small>
+                <strong>{viewer.name}</strong>
+                <small>{viewer.experienceLevel}</small>
               </span>
-              <ChevronDown size={15} />
+              <SignOutButton iconOnly />
             </div>
           </div>
         </header>
@@ -234,10 +243,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   </Link>
                 ))}
               </nav>
-              <button className="button button-secondary" onClick={toggleTheme}>
-                {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
-                {theme === "dark" ? "Light mode" : "Dark mode"}
-              </button>
+              <div className="drawer-actions">
+                <button className="button button-secondary" onClick={toggleTheme}>
+                  {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
+                  {theme === "dark" ? "Light mode" : "Dark mode"}
+                </button>
+                <SignOutButton />
+              </div>
             </motion.aside>
           </>
         )}

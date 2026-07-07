@@ -13,13 +13,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import {
-  muscleVolume,
-  strengthTrend,
-  volumeTrend,
-  weightTrend,
-} from "@/lib/data";
-
 const tooltipStyle = {
   background: "var(--surface-elevated)",
   border: "1px solid var(--border-strong)",
@@ -29,11 +22,19 @@ const tooltipStyle = {
   fontSize: "12px",
 };
 
-export function VolumeChart({ compact = false }: { compact?: boolean }) {
+export function VolumeChart({
+  compact = false,
+  data,
+  unit = "kg",
+}: {
+  compact?: boolean;
+  data: Array<{ week: string; volume: number }>;
+  unit?: string;
+}) {
   return (
     <div className={compact ? "chart-sm" : "chart-md"}>
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={volumeTrend} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
+        <AreaChart data={data} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
           <defs>
             <linearGradient id="volumeFill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#c7ff3d" stopOpacity={0.32} />
@@ -57,7 +58,7 @@ export function VolumeChart({ compact = false }: { compact?: boolean }) {
           )}
           <Tooltip
             contentStyle={tooltipStyle}
-            formatter={(value) => [`${Number(value).toLocaleString()} kg`, "Volume"]}
+            formatter={(value) => [`${Number(value).toLocaleString()} ${unit}`, "Volume"]}
           />
           <Area
             type="monotone"
@@ -67,27 +68,25 @@ export function VolumeChart({ compact = false }: { compact?: boolean }) {
             fill="url(#volumeFill)"
             activeDot={{ r: 5, fill: "#c7ff3d", stroke: "#12150e", strokeWidth: 3 }}
           />
-          {!compact && (
-            <Line
-              type="monotone"
-              dataKey="baseline"
-              stroke="var(--muted)"
-              strokeDasharray="5 6"
-              dot={false}
-              strokeWidth={1}
-            />
-          )}
         </AreaChart>
       </ResponsiveContainer>
     </div>
   );
 }
 
-export function WeightChart({ compact = false }: { compact?: boolean }) {
+export function WeightChart({
+  compact = false,
+  data,
+  unit = "kg",
+}: {
+  compact?: boolean;
+  data: Array<{ date: string; weight: number }>;
+  unit?: string;
+}) {
   return (
     <div className={compact ? "chart-xs" : "chart-md"}>
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={weightTrend} margin={{ top: 10, right: 5, left: compact ? -35 : -12, bottom: 0 }}>
+        <AreaChart data={data} margin={{ top: 10, right: 5, left: compact ? -35 : -12, bottom: 0 }}>
           <defs>
             <linearGradient id="weightFill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#6e8bff" stopOpacity={0.3} />
@@ -110,7 +109,7 @@ export function WeightChart({ compact = false }: { compact?: boolean }) {
           />
           <Tooltip
             contentStyle={tooltipStyle}
-            formatter={(value) => [`${value} kg`, "Body weight"]}
+            formatter={(value) => [`${value} ${unit}`, "Body weight"]}
           />
           <Area
             type="monotone"
@@ -126,11 +125,15 @@ export function WeightChart({ compact = false }: { compact?: boolean }) {
   );
 }
 
-export function MuscleVolumeChart() {
+export function MuscleVolumeChart({
+  data,
+}: {
+  data: Array<{ muscle: string; sets: number }>;
+}) {
   return (
     <div className="chart-md">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={muscleVolume} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+        <BarChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
           <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
           <XAxis
             dataKey="muscle"
@@ -140,7 +143,6 @@ export function MuscleVolumeChart() {
           />
           <YAxis axisLine={false} tickLine={false} tick={{ fill: "var(--muted)", fontSize: 11 }} />
           <Tooltip contentStyle={tooltipStyle} />
-          <Bar dataKey="target" fill="var(--chart-track)" radius={[4, 4, 0, 0]} />
           <Bar dataKey="sets" fill="#c7ff3d" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
@@ -148,18 +150,40 @@ export function MuscleVolumeChart() {
   );
 }
 
-export function StrengthChart() {
+const strengthColors = ["#c7ff3d", "#7891ff", "#ff8a55"];
+
+export function StrengthChart({
+  data,
+  series,
+  unit = "kg",
+}: {
+  data: Array<Record<string, number | string>>;
+  series: string[];
+  unit?: string;
+}) {
   return (
     <div className="chart-lg">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={strengthTrend} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+        <LineChart data={data} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
           <CartesianGrid stroke="var(--chart-grid)" vertical={false} />
           <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: "var(--muted)", fontSize: 11 }} />
           <YAxis axisLine={false} tickLine={false} tick={{ fill: "var(--muted)", fontSize: 11 }} />
-          <Tooltip contentStyle={tooltipStyle} />
-          <Line type="monotone" name="Incline press" dataKey="press" stroke="#c7ff3d" strokeWidth={2.4} dot={false} activeDot={{ r: 5 }} />
-          <Line type="monotone" name="Cable row" dataKey="row" stroke="#7891ff" strokeWidth={2.2} dot={false} />
-          <Line type="monotone" name="RDL" dataKey="rdl" stroke="#ff8a55" strokeWidth={2.2} dot={false} />
+          <Tooltip
+            contentStyle={tooltipStyle}
+            formatter={(value, name) => [`${Number(value).toFixed(1)} ${unit}`, name]}
+          />
+          {series.map((name, index) => (
+            <Line
+              type="monotone"
+              name={name}
+              dataKey={name}
+              stroke={strengthColors[index % strengthColors.length]}
+              strokeWidth={2.3}
+              dot={false}
+              activeDot={{ r: 5 }}
+              key={name}
+            />
+          ))}
         </LineChart>
       </ResponsiveContainer>
     </div>
