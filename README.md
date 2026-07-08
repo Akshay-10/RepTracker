@@ -19,7 +19,7 @@ Requirements: Node.js 20.9 or newer.
 npm install
 ```
 
-Create `.env.local` from `.env.example` and provide the required Supabase values. Then run:
+Create a single `.env` file in the project root and provide the required Supabase/OpenAI values. The file is gitignored and should not be committed. Then run:
 
 ```bash
 npm run dev
@@ -78,6 +78,8 @@ Add these under Vercel Project Settings → Environment Variables for Production
 NEXT_PUBLIC_SUPABASE_URL=your-project-url
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
 NEXT_PUBLIC_ENABLE_GOOGLE_AUTH=false
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_DB_URL=your-postgres-connection-string
 OPENAI_API_KEY=your-server-only-openai-key
 OPENAI_MODEL=gpt-5.4-mini
 NEXT_PUBLIC_APP_URL=https://rep-tracker-sable.vercel.app
