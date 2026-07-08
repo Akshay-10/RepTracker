@@ -3912,6 +3912,30 @@ strong {
   color: #0b0e09;
 }
 
+.set-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.set-field-label {
+  align-items: center;
+  color: var(--muted-2);
+  display: none;
+  font-size: 6px;
+  font-weight: 900;
+  gap: 4px;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.set-field-label em {
+  color: var(--lime);
+  font-style: normal;
+}
+
 .stepper {
   align-items: center;
   background: var(--surface-2);
@@ -6858,10 +6882,15 @@ strong {
   }
 
   .set-row {
+    align-items: end;
     gap: 7px;
     grid-template-columns: 29px 1fr 1fr 39px;
-    min-height: 62px;
+    min-height: 70px;
     padding: 8px 6px;
+  }
+
+  .set-field-label {
+    display: inline-flex;
   }
 
   .set-number {

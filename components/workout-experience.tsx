@@ -373,68 +373,86 @@ function ExerciseCard({
                 <span>REPS</span>
                 <span>STATUS</span>
               </div>
-              {sets.map((set) => (
-                <div
-                  className={`set-row ${set.completed ? "done" : ""}`}
-                  key={set.setNumber}
-                >
-                  <span className="set-number">
-                    {set.completed ? <Check size={15} /> : set.setNumber}
-                  </span>
-                  <div className="stepper">
-                    <button
-                      onClick={() => onSetChange(set.setNumber, "weight", Math.max(0, kgToUnit(set.weight, weightUnit) - (weightUnit === "lb" ? 5 : 2.5)))}
-                      aria-label="Decrease weight"
-                    >
-                      <Minus size={14} />
-                    </button>
-                    <input
-                      aria-label={`Set ${set.setNumber} weight`}
-                      inputMode="decimal"
-                      value={displayLoadInput(set.weight, weightUnit)}
-                      onChange={(event) =>
-                        onSetChange(set.setNumber, "weight", Number(event.target.value))
-                      }
-                    />
-                    <button
-                      onClick={() => onSetChange(set.setNumber, "weight", kgToUnit(set.weight, weightUnit) + (weightUnit === "lb" ? 5 : 2.5))}
-                      aria-label="Increase weight"
-                    >
-                      <Plus size={14} />
-                    </button>
-                  </div>
-                  <div className="stepper reps-stepper">
-                    <button
-                      onClick={() => onSetChange(set.setNumber, "reps", Math.max(0, set.reps - 1))}
-                      aria-label="Decrease reps"
-                    >
-                      <Minus size={14} />
-                    </button>
-                    <input
-                      aria-label={`Set ${set.setNumber} reps`}
-                      inputMode="numeric"
-                      value={set.reps}
-                      onChange={(event) =>
-                        onSetChange(set.setNumber, "reps", Number(event.target.value))
-                      }
-                    />
-                    <button
-                      onClick={() => onSetChange(set.setNumber, "reps", set.reps + 1)}
-                      aria-label="Increase reps"
-                    >
-                      <Plus size={14} />
-                    </button>
-                  </div>
-                  <motion.button
-                    whileTap={{ scale: 0.92 }}
-                    className={`complete-set ${set.completed ? "done" : ""}`}
-                    onClick={() => onComplete(set.setNumber)}
-                    aria-label={set.completed ? "Mark set incomplete" : "Complete set"}
+              {sets.map((set) => {
+                const weightInputId = `${exercise.id}-${set.setNumber}-weight`;
+                const repsInputId = `${exercise.id}-${set.setNumber}-reps`;
+                const weightStep = weightUnit === "lb" ? 5 : 2.5;
+
+                return (
+                  <div
+                    className={`set-row ${set.completed ? "done" : ""}`}
+                    key={set.setNumber}
                   >
-                    {set.completed ? <Check size={17} /> : <span>Complete</span>}
-                  </motion.button>
-                </div>
-              ))}
+                    <span className="set-number">
+                      {set.completed ? <Check size={15} /> : set.setNumber}
+                    </span>
+                    <div className="set-field">
+                      <label className="set-field-label" htmlFor={weightInputId}>
+                        Weight <em>{weightUnit.toUpperCase()}</em>
+                      </label>
+                      <div className="stepper">
+                        <button
+                          onClick={() => onSetChange(set.setNumber, "weight", Math.max(0, kgToUnit(set.weight, weightUnit) - weightStep))}
+                          aria-label={`Decrease ${displayName} set ${set.setNumber} weight by ${weightStep} ${weightUnit}`}
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <input
+                          id={weightInputId}
+                          aria-label={`${displayName} set ${set.setNumber} weight in ${weightUnit}`}
+                          inputMode="decimal"
+                          value={displayLoadInput(set.weight, weightUnit)}
+                          onChange={(event) =>
+                            onSetChange(set.setNumber, "weight", Number(event.target.value))
+                          }
+                        />
+                        <button
+                          onClick={() => onSetChange(set.setNumber, "weight", kgToUnit(set.weight, weightUnit) + weightStep)}
+                          aria-label={`Increase ${displayName} set ${set.setNumber} weight by ${weightStep} ${weightUnit}`}
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="set-field">
+                      <label className="set-field-label" htmlFor={repsInputId}>
+                        Reps
+                      </label>
+                      <div className="stepper reps-stepper">
+                        <button
+                          onClick={() => onSetChange(set.setNumber, "reps", Math.max(0, set.reps - 1))}
+                          aria-label={`Decrease ${displayName} set ${set.setNumber} reps`}
+                        >
+                          <Minus size={14} />
+                        </button>
+                        <input
+                          id={repsInputId}
+                          aria-label={`${displayName} set ${set.setNumber} reps`}
+                          inputMode="numeric"
+                          value={set.reps}
+                          onChange={(event) =>
+                            onSetChange(set.setNumber, "reps", Number(event.target.value))
+                          }
+                        />
+                        <button
+                          onClick={() => onSetChange(set.setNumber, "reps", set.reps + 1)}
+                          aria-label={`Increase ${displayName} set ${set.setNumber} reps`}
+                        >
+                          <Plus size={14} />
+                        </button>
+                      </div>
+                    </div>
+                    <motion.button
+                      whileTap={{ scale: 0.92 }}
+                      className={`complete-set ${set.completed ? "done" : ""}`}
+                      onClick={() => onComplete(set.setNumber)}
+                      aria-label={set.completed ? `Mark ${displayName} set ${set.setNumber} incomplete` : `Complete ${displayName} set ${set.setNumber}`}
+                    >
+                      {set.completed ? <Check size={17} /> : <span>Complete</span>}
+                    </motion.button>
+                  </div>
+                );
+              })}
             </div>
             <div className="exercise-footer">
               <p><Zap size={14} /> {exercise.formTip}</p>
