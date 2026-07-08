@@ -7,13 +7,14 @@ import {
   Flame,
   Trophy,
 } from "lucide-react";
+import Link from "next/link";
 import {
   MuscleVolumeChart,
   StrengthChart,
   VolumeChart,
   WeightChart,
 } from "@/components/charts";
-import { PageHeading, Panel, PanelHeader, StatCard } from "@/components/ui";
+import { EmptyState, PageHeading, Panel, PanelHeader, StatCard } from "@/components/ui";
 import { getViewer } from "@/lib/auth";
 import { getLiveSnapshot } from "@/lib/live-data";
 import {
@@ -53,6 +54,11 @@ export default async function ProgressPage() {
       ]),
     ),
   );
+  const hasVolumeTrend = displayedVolumeTrend.some((point) => point.volume > 0);
+  const hasWeightTrend = displayedWeightTrend.length > 0;
+  const hasStrengthTrend =
+    data.strengthSeries.length > 0 && displayedStrengthTrend.length > 0;
+  const hasMuscleVolume = data.muscleVolume.length > 0;
 
   return (
     <>
@@ -77,31 +83,65 @@ export default async function ProgressPage() {
             title="Key lifts are moving"
             action={<span className="positive-delta">{data.strengthSeries.length} TRACKED LIFTS</span>}
           />
-          <div className="chart-legend">
-            {data.strengthSeries.map((series, index) => (
-              <span key={series}><i className={index === 1 ? "blue" : index === 2 ? "orange" : "lime"} /> {series}</span>
-            ))}
-          </div>
-          <StrengthChart data={displayedStrengthTrend} series={data.strengthSeries} unit={unit} />
+          {hasStrengthTrend ? (
+            <>
+              <div className="chart-legend">
+                {data.strengthSeries.map((series, index) => (
+                  <span key={series}><i className={index === 1 ? "blue" : index === 2 ? "orange" : "lime"} /> {series}</span>
+                ))}
+              </div>
+              <StrengthChart data={displayedStrengthTrend} series={data.strengthSeries} unit={unit} />
+            </>
+          ) : (
+            <EmptyState
+              title="Strength trend starts after workouts"
+              copy="Complete a few sets and RepForge will chart the lifts you train most often."
+              action={<Link className="button button-secondary" href="/workout/today">Log a workout</Link>}
+            />
+          )}
         </Panel>
 
         <Panel className="muscle-panel">
           <PanelHeader eyebrow="VOLUME DISTRIBUTION" title="Sets by muscle" />
-          <MuscleVolumeChart data={data.muscleVolume} />
-          <div className="volume-callout">
-            <Activity size={17} />
-            <span><strong>{data.muscleVolume.length} muscle groups logged</strong><small>Counts include completed sets from the current week.</small></span>
-          </div>
+          {hasMuscleVolume ? (
+            <>
+              <MuscleVolumeChart data={data.muscleVolume} />
+              <div className="volume-callout">
+                <Activity size={17} />
+                <span><strong>{data.muscleVolume.length} muscle groups logged</strong><small>Counts include completed sets from the current week.</small></span>
+              </div>
+            </>
+          ) : (
+            <EmptyState
+              title="No muscle volume yet"
+              copy="This distribution fills from completed sets in the current week."
+            />
+          )}
         </Panel>
 
         <Panel>
           <PanelHeader eyebrow="TONNAGE" title="Weekly volume" />
-          <VolumeChart data={displayedVolumeTrend} unit={unit} />
+          {hasVolumeTrend ? (
+            <VolumeChart data={displayedVolumeTrend} unit={unit} />
+          ) : (
+            <EmptyState
+              title="No weekly volume yet"
+              copy="Save completed sets with reps and weight to build your live tonnage trend."
+            />
+          )}
         </Panel>
 
         <Panel>
           <PanelHeader eyebrow="BODY WEIGHT" title="Tracked weight trend" action={<span className="positive-delta">{data.weightDelta === null ? "NO BASELINE" : `${data.weightDelta >= 0 ? "+" : ""}${kgToUnit(data.weightDelta, unit).toFixed(1)} ${unit}`}</span>} />
-          <WeightChart data={displayedWeightTrend} unit={unit} />
+          {hasWeightTrend ? (
+            <WeightChart data={displayedWeightTrend} unit={unit} />
+          ) : (
+            <EmptyState
+              title="Add your first body check-in"
+              copy="Weight and measurement trends stay empty until you save your own metrics."
+              action={<Link className="button button-secondary" href="/body">Add measurement</Link>}
+            />
+          )}
         </Panel>
 
         <Panel className="consistency-panel">
@@ -120,14 +160,21 @@ export default async function ProgressPage() {
 
         <Panel className="progress-records">
           <PanelHeader eyebrow="LATEST WINS" title="Recent personal records" />
-          {data.recentRecords.slice(0, 4).map((record) => (
-            <div className="progress-record" key={record.id}>
-              <span><Trophy size={16} /></span>
-              <span><strong>{record.exercise}</strong><small>{record.date}</small></span>
-              <span><strong>{displayRecordResult(record.weightKg, record.reps, record.estimatedOneRepMax, unit)}</strong><small>{record.type}</small></span>
-              <ArrowUpRight size={15} />
-            </div>
-          ))}
+          {data.recentRecords.length > 0 ? (
+            data.recentRecords.slice(0, 4).map((record) => (
+              <div className="progress-record" key={record.id}>
+                <span><Trophy size={16} /></span>
+                <span><strong>{record.exercise}</strong><small>{record.date}</small></span>
+                <span><strong>{displayRecordResult(record.weightKg, record.reps, record.estimatedOneRepMax, unit)}</strong><small>{record.type}</small></span>
+                <ArrowUpRight size={15} />
+              </div>
+            ))
+          ) : (
+            <EmptyState
+              title="No wins recorded yet"
+              copy="RepForge creates records from your completed workout sets when you beat a previous best."
+            />
+          )}
         </Panel>
       </div>
     </>

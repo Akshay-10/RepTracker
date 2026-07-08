@@ -55,6 +55,10 @@ const features = [
 
 export function LandingPage({ authenticated }: { authenticated: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const dashboardHref = authenticated ? "/dashboard" : "/signup";
+  const planHref = authenticated ? "/plan" : "/signup";
+  const progressHref = authenticated ? "/progress" : "/signup";
+  const workoutHref = authenticated ? "/workout/today" : "/signup";
 
   return (
     <main className="landing">
@@ -66,7 +70,7 @@ export function LandingPage({ authenticated }: { authenticated: boolean }) {
           <a href="#coach">AI coach</a>
           <AuthNav initialAuthenticated={authenticated} />
         </div>
-        <Link className="button button-primary nav-cta" href={authenticated ? "/dashboard" : "/onboarding"}>
+        <Link className="button button-primary nav-cta" href={dashboardHref}>
           {authenticated ? "Open dashboard" : "Start training"} <ArrowRight size={16} />
         </Link>
         <button className="marketing-menu" onClick={() => setMenuOpen(true)} aria-label="Open menu">
@@ -131,7 +135,7 @@ export function LandingPage({ authenticated }: { authenticated: boolean }) {
               <h3>Your<br />Workout</h3>
               <p>Exercises, sets, and rest come from your plan</p>
               <div><span><Clock3 size={11} /> Plan timing</span><span><Dumbbell size={11} /> Live moves</span></div>
-              <Link href="/workout/today">Start workout <ArrowRight size={14} /></Link>
+              <Link href={workoutHref}>{authenticated ? "Start workout" : "Create account"} <ArrowRight size={14} /></Link>
             </div>
             <div className="phone-row-title"><strong>Training week</strong><span>SYNCED</span></div>
             <div className="phone-week">
@@ -195,7 +199,7 @@ export function LandingPage({ authenticated }: { authenticated: boolean }) {
             <li><span><Check size={13} /></span><div><strong>Rotate the right 30–40%</strong><small>Accessories change only when the match is useful.</small></div></li>
             <li><span><Check size={13} /></span><div><strong>Know why before you accept</strong><small>Every variation includes a concise reason.</small></div></li>
           </ul>
-          <Link className="button button-secondary" href="/plan">See the workout plan <ArrowRight size={16} /></Link>
+          <Link className="button button-secondary" href={planHref}>{authenticated ? "See the workout plan" : "Create your plan"} <ArrowRight size={16} /></Link>
         </div>
         <div className="live-system-card">
           <span className="launch-pill"><Sparkles size={13} /> LIVE INPUTS ONLY</span>
@@ -234,12 +238,12 @@ export function LandingPage({ authenticated }: { authenticated: boolean }) {
         <p className="eyebrow">YOUR NEXT SET IS WAITING</p>
         <h2>Build the body.<br /><em>Keep the proof.</em></h2>
         <p>Start with your exact six-day plan. Adjust as you grow.</p>
-        <Link className="button button-primary button-xl" href={authenticated ? "/dashboard" : "/onboarding"}>{authenticated ? "Open dashboard" : "Start training today"} <ArrowRight size={18} /></Link>
+        <Link className="button button-primary button-xl" href={dashboardHref}>{authenticated ? "Open dashboard" : "Start training today"} <ArrowRight size={18} /></Link>
       </section>
 
       <footer className="marketing-footer">
         <div><Brand /><p>Train with intent. Track what matters.</p></div>
-        <div><strong>PRODUCT</strong><Link href="/dashboard">Dashboard</Link><Link href="/plan">Workout plan</Link><Link href="/progress">Progress</Link></div>
+        <div><strong>PRODUCT</strong><Link href={dashboardHref}>Dashboard</Link><Link href={planHref}>Workout plan</Link><Link href={progressHref}>Progress</Link></div>
         <div><strong>ACCOUNT</strong><AuthNav initialAuthenticated={authenticated} compact />{!authenticated && <Link href="/signup">Create account</Link>}</div>
         <div><strong>PRINCIPLES</strong><span>Progressive overload</span><span>Useful variation</span><span>Private by default</span></div>
         <p>© 2026 RepForge. Built for the next rep.</p>
@@ -255,7 +259,7 @@ export function LandingPage({ authenticated }: { authenticated: boolean }) {
               <a href="#progress" onClick={() => setMenuOpen(false)}>Progress</a>
               <a href="#coach" onClick={() => setMenuOpen(false)}>AI coach</a>
               <AuthNav initialAuthenticated={authenticated} compact />
-              <Link className="button button-primary" href={authenticated ? "/dashboard" : "/onboarding"}>
+              <Link className="button button-primary" href={dashboardHref}>
                 {authenticated ? "Open dashboard" : "Start training"} <ArrowRight size={16} />
               </Link>
             </motion.div>

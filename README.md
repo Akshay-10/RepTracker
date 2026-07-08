@@ -32,9 +32,12 @@ Open [http://localhost:3000](http://localhost:3000).
 1. Open the Supabase SQL editor.
 2. Run [`supabase/schema.sql`](./supabase/schema.sql).
 3. Run [`supabase/bootstrap.sql`](./supabase/bootstrap.sql).
-4. In Supabase Authentication → URL Configuration, set the Site URL and add these redirect URLs:
-   - `http://localhost:3000/**`
-   - `https://rep-tracker-sable.vercel.app/**`
+4. In Supabase Authentication → URL Configuration:
+   - Set **Site URL** to your production URL, for example `https://rep-tracker-sable.vercel.app`.
+   - Add redirect URLs:
+     - `http://localhost:3000/**`
+     - `https://rep-tracker-sable.vercel.app/**`
+     - any Vercel preview domain pattern you plan to test from.
 5. Add the Supabase project URL and publishable key to local and Vercel environment variables.
 
 The schema creates authenticated profiles, preferences, plan rows, sessions, sets, metrics, records, feedback, AI cache/usage tables, row-level security, and the new-user profile trigger. The bootstrap seeds the exercise catalog and creates authenticated functions for plan generation and session completion.
@@ -63,6 +66,9 @@ Email/password authentication works after the required Supabase setup. Google si
 1. Enable Google under Supabase Authentication → Providers.
 2. Create Google OAuth credentials using the callback URL shown by Supabase.
 3. Add the Google client ID and secret to the Supabase provider configuration.
+4. Set `NEXT_PUBLIC_ENABLE_GOOGLE_AUTH=true` in local/Vercel environment variables and redeploy.
+
+Leave `NEXT_PUBLIC_ENABLE_GOOGLE_AUTH=false` until the provider is configured. The app hides the Google button in that state so production users do not hit an unfinished integration.
 
 ## Vercel deployment
 
@@ -71,12 +77,13 @@ Add these under Vercel Project Settings → Environment Variables for Production
 ```dotenv
 NEXT_PUBLIC_SUPABASE_URL=your-project-url
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-publishable-key
+NEXT_PUBLIC_ENABLE_GOOGLE_AUTH=false
 OPENAI_API_KEY=your-server-only-openai-key
 OPENAI_MODEL=gpt-5.4-mini
 NEXT_PUBLIC_APP_URL=https://rep-tracker-sable.vercel.app
 ```
 
-Redeploy after changing environment variables. The session proxy now degrades safely if deployment variables are missing, while protected routes still require valid authentication.
+Redeploy after changing environment variables. `NEXT_PUBLIC_APP_URL` is used for signup confirmation, password reset, and OAuth callback links. Do not leave it as `http://localhost:3000` in Vercel. The session proxy now degrades safely if deployment variables are missing, while protected routes still require valid authentication.
 
 ## Live behavior
 

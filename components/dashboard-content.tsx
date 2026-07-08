@@ -178,6 +178,21 @@ export function DashboardContent({ data }: { data: LiveSnapshot }) {
         </div>
       </div>
 
+      {(data.setupRequired || data.plan.length === 0) && (
+        <Panel className="setup-panel">
+          <PanelHeader
+            eyebrow="SETUP CHECK"
+            title="Create your live training plan"
+            action={<TextLink href="/onboarding">Finish setup</TextLink>}
+          />
+          <p>
+            {data.setupRequired
+              ? "The Supabase schema/bootstrap is not fully installed yet. Run the setup SQL, then finish onboarding to generate your plan."
+              : "Finish onboarding or reset your workout plan from settings. RepForge will not show fake workouts while your live plan is empty."}
+          </p>
+        </Panel>
+      )}
+
       <div className="dashboard-grid">
         <motion.section
           className="today-card"
@@ -309,20 +324,27 @@ export function DashboardContent({ data }: { data: LiveSnapshot }) {
             action={<TextLink href="/records">All records</TextLink>}
           />
           <div className="record-list">
-            {data.recentRecords.slice(0, 3).map((record, index) => (
-              <div className="record-row" key={record.id}>
-                <span className="record-rank">0{index + 1}</span>
-                <span className="record-copy">
-                  <strong>{record.exercise}</strong>
-                  <small>{record.date}</small>
-                </span>
-                <span className="record-result">
-                  <strong>{displayRecordResult(record.weightKg, record.reps, record.estimatedOneRepMax, unit)}</strong>
-                  <small>{record.type}</small>
-                </span>
-                <ChevronRight size={16} />
+            {data.recentRecords.length > 0 ? (
+              data.recentRecords.slice(0, 3).map((record, index) => (
+                <div className="record-row" key={record.id}>
+                  <span className="record-rank">0{index + 1}</span>
+                  <span className="record-copy">
+                    <strong>{record.exercise}</strong>
+                    <small>{record.date}</small>
+                  </span>
+                  <span className="record-result">
+                    <strong>{displayRecordResult(record.weightKg, record.reps, record.estimatedOneRepMax, unit)}</strong>
+                    <small>{record.type}</small>
+                  </span>
+                  <ChevronRight size={16} />
+                </div>
+              ))
+            ) : (
+              <div className="inline-empty">
+                <strong>No records yet</strong>
+                <span>Complete sets close to your best effort and RepForge will surface new PRs here.</span>
               </div>
-            ))}
+            )}
           </div>
         </Panel>
 

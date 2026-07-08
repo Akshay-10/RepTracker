@@ -163,6 +163,7 @@ strong {
   display: inline-flex;
   flex-shrink: 0;
   gap: 10px;
+  min-height: 36px;
 }
 
 .brand-mark {
@@ -784,9 +785,12 @@ strong {
 }
 
 .marketing-links a {
+  align-items: center;
   color: #929991;
+  display: inline-flex;
   font-size: 11px;
   font-weight: 700;
+  min-height: 32px;
   transition: color 160ms ease;
 }
 
@@ -795,8 +799,12 @@ strong {
 }
 
 .marketing-menu {
+  align-items: center;
   color: #f5f7f1;
   display: none;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
 }
 
 .landing-hero {
@@ -881,6 +889,7 @@ strong {
   font-size: 11px;
   font-weight: 800;
   gap: 9px;
+  min-height: 44px;
 }
 
 .watch-link span {
@@ -1098,6 +1107,7 @@ strong {
   font-weight: 900;
   justify-content: space-between;
   margin-top: 12px;
+  min-height: 30px;
   padding: 9px 10px;
   position: relative;
   z-index: 1;
@@ -1409,6 +1419,7 @@ strong {
   font-size: 9px;
   font-weight: 800;
   gap: 6px;
+  min-height: 28px;
   position: absolute;
 }
 
@@ -1636,8 +1647,11 @@ strong {
 
 .marketing-footer div > a,
 .marketing-footer div > span {
+  align-items: center;
   color: #8a918b;
+  display: inline-flex;
   font-size: 9px;
+  min-height: 24px;
 }
 
 .marketing-footer > p {
@@ -1670,10 +1684,19 @@ strong {
   margin-bottom: 20px;
 }
 
+.marketing-drawer > div button {
+  align-items: center;
+  display: inline-flex;
+  height: 44px;
+  justify-content: center;
+  width: 44px;
+}
+
 .marketing-drawer > a:not(.button) {
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   color: #bbc0ba;
   font-weight: 700;
+  min-height: 44px;
   padding-bottom: 15px;
 }
 
@@ -1916,8 +1939,22 @@ strong {
 
 .auth-options a,
 .auth-switch a {
+  align-items: center;
   color: #c8ff3d;
+  display: inline-flex;
   font-weight: 800;
+  min-height: 24px;
+}
+
+.auth-form label > div button {
+  align-items: center;
+  border-radius: 8px;
+  color: var(--muted);
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  margin-right: -8px;
+  width: 36px;
 }
 
 .auth-divider {
@@ -2002,9 +2039,12 @@ strong {
 }
 
 .back-home {
+  align-items: center;
   color: #535a54;
+  display: inline-flex;
   font-size: 9px;
   margin-top: 35px;
+  min-height: 32px;
 }
 
 /* Onboarding */
@@ -3213,6 +3253,18 @@ strong {
   grid-column: span 2;
 }
 
+.setup-panel {
+  margin-bottom: 16px;
+}
+
+.setup-panel > p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+  margin-top: 10px;
+  max-width: 720px;
+}
+
 .record-list {
   margin-top: 14px;
 }
@@ -3259,6 +3311,25 @@ strong {
 
 .record-row > svg {
   color: var(--muted-2);
+}
+
+.inline-empty {
+  background: var(--surface-2);
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  font-size: 9px;
+  gap: 5px;
+  line-height: 1.5;
+  margin-top: 12px;
+  padding: 18px;
+}
+
+.inline-empty strong {
+  color: var(--text-soft);
+  font-size: 11px;
 }
 
 .next-panel {
@@ -6067,6 +6138,55 @@ strong {
   line-height: 1.45;
 }
 
+.advanced-details {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.advanced-details summary {
+  align-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-soft);
+  cursor: pointer;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 18px;
+  list-style: none;
+  min-height: 58px;
+  padding: 0 14px;
+}
+
+.advanced-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced-details summary > span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.advanced-details summary strong {
+  font-size: 10px;
+}
+
+.advanced-details summary small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.advanced-details summary > svg {
+  color: var(--muted-2);
+  transition: transform 160ms ease;
+}
+
+.advanced-details[open] summary > svg {
+  transform: rotate(90deg);
+}
+
 .usage-grid {
   background: var(--bg-soft);
   border: 1px solid var(--border);
@@ -6437,6 +6557,8 @@ strong {
     flex-direction: column;
     font-size: 7px;
     gap: 3px;
+    justify-content: center;
+    min-height: 54px;
   }
 
   .mobile-nav a.active {
@@ -7047,7 +7169,7 @@ strong {
   }
 
   .marketing-menu {
-    display: block;
+    display: flex;
   }
 
   .landing-hero {

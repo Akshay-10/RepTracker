@@ -12,7 +12,11 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { getAuthCallbackUrl } from "@/lib/app-url";
 import { createClient } from "@/utils/supabase/client";
+
+const googleAuthEnabled =
+  process.env.NEXT_PUBLIC_ENABLE_GOOGLE_AUTH === "true";
 
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   const router = useRouter();
@@ -40,7 +44,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           password,
           options: {
             data: { name },
-            emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`,
+            emailRedirectTo: getAuthCallbackUrl("/onboarding"),
           },
         });
         if (error) throw error;
@@ -81,7 +85,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        redirectTo: getAuthCallbackUrl("/dashboard"),
       },
     });
     if (error) {
@@ -130,8 +134,12 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       <button className="button button-primary button-lg full-button" type="submit" disabled={loading}>
         {loading ? <LoaderCircle className="spin" size={18} /> : <>{mode === "signup" ? "Create my account" : "Enter RepForge"} <ArrowRight size={17} /></>}
       </button>
-      <div className="auth-divider"><span>OR CONTINUE WITH</span></div>
-      <button className="google-button" type="button" onClick={continueWithGoogle} disabled={loading}><span>G</span> Google</button>
+      {googleAuthEnabled && (
+        <>
+          <div className="auth-divider"><span>OR CONTINUE WITH</span></div>
+          <button className="google-button" type="button" onClick={continueWithGoogle} disabled={loading}><span>G</span> Google</button>
+        </>
+      )}
       <p className="auth-switch">
         {mode === "login" ? "New to RepForge?" : "Already have an account?"}{" "}
         <Link href={mode === "login" ? "/signup" : "/login"}>{mode === "login" ? "Create account" : "Sign in"}</Link>

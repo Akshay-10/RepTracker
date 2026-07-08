@@ -106,6 +106,12 @@ export function SettingsContent({
       .slice(0, 2)
       .map((part) => part[0]?.toUpperCase())
       .join("") || "RF";
+  const hasAdvancedVariationPreferences = [
+    data.preferences.preferredEquipment,
+    data.preferences.exercisesToAvoid,
+    data.preferences.injuriesOrPain,
+    data.preferences.weakMuscles,
+  ].some((items) => items.length > 0);
 
   const changeUnits = (nextUnit: WeightUnit) => {
     if (nextUnit === units) return;
@@ -334,28 +340,37 @@ export function SettingsContent({
                 </button>
               ))}
             </div>
-            <div className="preference-fields">
-              <label>
-                <span><Dumbbell size={15} /> Available equipment</span>
-                <textarea value={preferredEquipment} onChange={(event) => setPreferredEquipment(event.target.value)} placeholder="Dumbbells, Cable, Machine" />
-                <small>Comma-separated. Used by smart swaps and AI context.</small>
-              </label>
-              <label>
-                <span><Shield size={15} /> Exercises to avoid</span>
-                <textarea value={exercisesToAvoid} onChange={(event) => setExercisesToAvoid(event.target.value)} placeholder="Skull Crusher, Barbell Squat" />
-                <small>RepForge avoids matching these when suggesting variations.</small>
-              </label>
-              <label>
-                <span><HeartPulse size={15} /> Pain or injury notes</span>
-                <textarea value={injuriesOrPain} onChange={(event) => setInjuriesOrPain(event.target.value)} placeholder="Right shoulder pain, knee irritation" />
-                <small>AI and the local engine treat these as safety constraints.</small>
-              </label>
-              <label>
-                <span><Sparkles size={15} /> Weak-point priority</span>
-                <textarea value={weakMuscles} onChange={(event) => setWeakMuscles(event.target.value)} placeholder="Upper chest, side delts, hamstrings" />
-                <small>Used as coaching context and future plan tuning signal.</small>
-              </label>
-            </div>
+            <details className="advanced-details" open={hasAdvancedVariationPreferences}>
+              <summary>
+                <span>
+                  <strong>Advanced variation constraints</strong>
+                  <small>Equipment, avoid list, pain notes, and weak-point priorities.</small>
+                </span>
+                <ChevronRight size={16} />
+              </summary>
+              <div className="preference-fields">
+                <label>
+                  <span><Dumbbell size={15} /> Available equipment</span>
+                  <textarea value={preferredEquipment} onChange={(event) => setPreferredEquipment(event.target.value)} placeholder="Dumbbells, Cable, Machine" />
+                  <small>Comma-separated. Used by smart swaps and AI context.</small>
+                </label>
+                <label>
+                  <span><Shield size={15} /> Exercises to avoid</span>
+                  <textarea value={exercisesToAvoid} onChange={(event) => setExercisesToAvoid(event.target.value)} placeholder="Skull Crusher, Barbell Squat" />
+                  <small>RepForge avoids matching these when suggesting variations.</small>
+                </label>
+                <label>
+                  <span><HeartPulse size={15} /> Pain or injury notes</span>
+                  <textarea value={injuriesOrPain} onChange={(event) => setInjuriesOrPain(event.target.value)} placeholder="Right shoulder pain, knee irritation" />
+                  <small>AI and the local engine treat these as safety constraints.</small>
+                </label>
+                <label>
+                  <span><Sparkles size={15} /> Weak-point priority</span>
+                  <textarea value={weakMuscles} onChange={(event) => setWeakMuscles(event.target.value)} placeholder="Upper chest, side delts, hamstrings" />
+                  <small>Used as coaching context and future plan tuning signal.</small>
+                </label>
+              </div>
+            </details>
           </Panel>
 
           <Panel id="ai-coach">
@@ -377,12 +392,21 @@ export function SettingsContent({
                 </button>
               ))}
             </div>
-            <div className="usage-grid">
+            <details className="advanced-details" open={data.aiUsage.calls > 0}>
+              <summary>
+                <span>
+                  <strong>Usage and cache details</strong>
+                  <small>Live AI calls, estimated tokens, cache hits, and latest review.</small>
+                </span>
+                <ChevronRight size={16} />
+              </summary>
+              <div className="usage-grid">
               <span><small>AI calls this month</small><strong>{data.aiUsage.calls}</strong><em>live usage log</em></span>
               <span><small>Estimated tokens</small><strong>{data.aiUsage.tokens.toLocaleString()}</strong><em>input + output</em></span>
               <span><small>Cache hits</small><strong>{data.aiUsage.cacheHits}</strong><em>calls avoided</em></span>
               <span><small>Last review</small><strong>{data.aiUsage.lastCall ? new Date(data.aiUsage.lastCall).toLocaleDateString() : "—"}</strong><em>latest call</em></span>
-            </div>
+              </div>
+            </details>
           </Panel>
 
           <Panel id="appearance">

@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle2, LoaderCircle, LockKeyhole, Mail } from "lucid
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { getAuthCallbackUrl } from "@/lib/app-url";
 import { createClient } from "@/utils/supabase/client";
 
 export function PasswordRecoveryForm({
@@ -29,7 +30,7 @@ export function PasswordRecoveryForm({
 
     if (mode === "request") {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`,
+        redirectTo: getAuthCallbackUrl("/reset-password"),
       });
       setMessage(
         error
