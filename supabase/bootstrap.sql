@@ -94,12 +94,14 @@ on conflict (exercise_id, variation_name) do update set
   equipment = excluded.equipment,
   joint_stress_level = excluded.joint_stress_level;
 
+drop function if exists public.add_default_plan_day(uuid,smallint,text,text[],smallint,jsonb);
+
 create or replace function public.add_default_plan_day(
   p_user_id uuid,
-  p_day_of_week smallint,
+  p_day_of_week integer,
   p_title text,
   p_muscle_groups text[],
-  p_duration smallint,
+  p_duration integer,
   p_items jsonb
 )
 returns void
@@ -166,7 +168,7 @@ begin
 end;
 $$;
 
-revoke all on function public.add_default_plan_day(uuid,smallint,text,text[],smallint,jsonb) from public;
+revoke all on function public.add_default_plan_day(uuid,integer,text,text[],integer,jsonb) from public;
 
 create or replace function public.create_default_workout_plan()
 returns void
