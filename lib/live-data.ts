@@ -431,7 +431,7 @@ export async function getLiveSnapshot(userId: string): Promise<LiveSnapshot> {
     supabase
       .from("workout_days")
       .select(
-        "id,day_of_week,title,muscle_groups,estimated_duration,sort_order,block_type,workout_day_exercises(id,slot_id,sort_order,sets,reps_min,reps_max,rest_seconds,notes,exercises(id,slug,name,muscle_group,target_muscle,secondary_muscles,equipment,movement_pattern,angle_focus,joint_stress_level,form_tips,common_mistakes,exercise_variants(id,variation_name,angle_focus,equipment,joint_stress_level)))",
+        "id,day_of_week,title,muscle_groups,estimated_duration,sort_order,block_type,workout_day_exercises(id,slot_id,sort_order,sets,reps_min,reps_max,rest_seconds,notes,exercises(id,slug,name,muscle_group,target_muscle,secondary_muscles,equipment,movement_pattern,angle_focus,joint_stress_level,form_tips,common_mistakes,exercise_variants!exercise_variants_exercise_id_fkey(id,variation_name,angle_focus,equipment,joint_stress_level)))",
       )
       .eq("user_id", userId)
       .eq("active", true)
@@ -791,7 +791,7 @@ export async function getExerciseCatalog(): Promise<LiveLibraryExercise[]> {
   const { data } = await supabase
     .from("exercises")
     .select(
-      "id,slug,name,muscle_group,target_muscle,secondary_muscles,equipment,movement_pattern,angle_focus,joint_stress_level,default_sets,default_reps_min,default_reps_max,default_rest_seconds,form_tips,common_mistakes,exercise_variants(id,variation_name,angle_focus,equipment,joint_stress_level)",
+      "id,slug,name,muscle_group,target_muscle,secondary_muscles,equipment,movement_pattern,angle_focus,joint_stress_level,default_sets,default_reps_min,default_reps_max,default_rest_seconds,form_tips,common_mistakes,exercise_variants!exercise_variants_exercise_id_fkey(id,variation_name,angle_focus,equipment,joint_stress_level)",
     )
     .order("muscle_group")
     .order("name");
